@@ -1,0 +1,7 @@
+server:
+  port: 8888
+
+jira:
+  username: "dat.nt0401@gmail.com"
+  access-token: "ATATT3xFfGF0rAMaYII6kjNd9ffN5Cd2pG5yBhNLKFcCcX1pzfqk1YRFoXW4xdWaeS9PFMHjEymP30VlRlRFFjIoFDLvMYUgxJIgkhs4L7P0izQMpZx0Z8lrh1ZTfsB9OKxi7lhrowDdsNEefhsrHWvKMoExevHEyR1IgG8GLksU0HdGfAdiE_w=95F79494"
+  base-url: "https://project-mnt.atlassian.net"
