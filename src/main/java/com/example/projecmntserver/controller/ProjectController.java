@@ -1,16 +1,20 @@
 package com.example.projecmntserver.controller;
 
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 
 import org.springframework.http.ResponseEntity;
+import org.springframework.util.CollectionUtils;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
-import com.example.projecmntserver.dto.ProjectStatisticResponseDto;
-import com.example.projecmntserver.dto.jira.ProjectDto;
+import com.example.projecmntserver.dto.jira.EpicDto;
+import com.example.projecmntserver.dto.response.EpicRemainingResponse;
+import com.example.projecmntserver.dto.response.ProjectResponse;
 import com.example.projecmntserver.service.ProjectService;
 import com.example.projecmntserver.util.DatetimeUtils;
 
@@ -24,16 +28,37 @@ public class ProjectController {
     private final ProjectService projectService;
 
     @GetMapping("/search")
-    public ResponseEntity<ProjectStatisticResponseDto> search(
+    public ResponseEntity<ProjectResponse> search(
             @RequestParam(required = false) List<String> projectIds,
             @RequestParam String fromDate,
             @RequestParam String toDate) {
-        return ResponseEntity.ok(projectService.getProjectStatistic(projectIds, DatetimeUtils.parse(fromDate),
+        return ResponseEntity.ok(projectService.getProjectStatistic(getEpicIds(projectIds),
+                                                                    DatetimeUtils.parse(fromDate),
                                                                     DatetimeUtils.parse(toDate)));
     }
 
-    @GetMapping
-    public ResponseEntity<ProjectDto[]> getAll() {
-        return ResponseEntity.ok(projectService.getAllProject());
+    private List<String> getEpicIds(List<String> projectIds) {
+        final List<String> epicIds = new ArrayList<>();
+        if (!CollectionUtils.isEmpty(projectIds)) {
+            for (var projectId : projectIds) {
+                final String[] epicIdArr = projectId.split("-");
+                if (epicIdArr.length > 0) {
+                    epicIds.addAll(Arrays.asList(epicIdArr));
+                }
+            }
+        }
+        return epicIds;
+    }
+
+    @GetMapping("/remaining")
+    public ResponseEntity<List<EpicRemainingResponse>> remaining(
+            @RequestParam(required = false) List<String> projectIds) {
+        return ResponseEntity.ok(projectService.getEpicRemaining(getEpicIds(projectIds)));
+    }
+
+    @GetMapping("/epic")
+    public ResponseEntity<List<EpicDto>> getAll(
+            @RequestParam(required = false, defaultValue = "true") Boolean groupEpic) {
+        return ResponseEntity.ok(projectService.getAllProject(groupEpic));
     }
 }

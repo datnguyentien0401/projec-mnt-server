@@ -12,10 +12,10 @@ import lombok.extern.slf4j.Slf4j;
 
 @Configuration
 @Slf4j
-public class RequestResponseLoggingInterceptor implements ClientHttpRequestInterceptor {
+public class LoggingInterceptor implements ClientHttpRequestInterceptor {
     @Override
-    public ClientHttpResponse intercept(HttpRequest request, byte[] body, ClientHttpRequestExecution execution) throws
-                                                                                                                IOException {
+    public ClientHttpResponse intercept(HttpRequest request, byte[] body,
+                                        ClientHttpRequestExecution execution) throws IOException {
         logRequestDetails(request, body);
         final ClientHttpResponse response = execution.execute(request, body);
         logResponseDetails(response);
@@ -23,15 +23,14 @@ public class RequestResponseLoggingInterceptor implements ClientHttpRequestInter
     }
 
     private static void logRequestDetails(HttpRequest request, byte[] body) {
-        log.info("Request method: " + request.getMethod());
-        log.info("Request URI: " + request.getURI());
-        log.info("Request headers: " + request.getHeaders());
-        log.info("Request body: " + new String(body));
+        log.info("JIRA Request method: " + request.getMethod());
+        log.info("JIRA Request URI: " + request.getURI().getPath());
+        log.info("JIRA Request headers: " + request.getHeaders());
     }
 
     private static void logResponseDetails(ClientHttpResponse response) throws IOException {
-        log.info("Response status: " + response.getStatusCode());
-        log.info("Response headers: " + response.getHeaders());
-        log.info("Response body: " + response.getBody());
+        log.info("JIRA Response status: " + response.getStatusCode());
+        log.info("JIRA Response headers: " + response.getHeaders());
     }
+
 }

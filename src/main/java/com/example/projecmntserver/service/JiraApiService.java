@@ -12,7 +12,7 @@ import org.springframework.web.client.RestTemplate;
 
 import com.example.projecmntserver.constant.JiraPathConstant;
 import com.example.projecmntserver.dto.jira.ProjectDto;
-import com.example.projecmntserver.dto.jira.ProjectSearchResponseDto;
+import com.example.projecmntserver.dto.jira.IssueSearchResponse;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -31,7 +31,7 @@ public class JiraApiService {
                                      ProjectDto[].class).getBody();
     }
 
-    public ProjectSearchResponseDto searchProject(String jql, String fields) {
+    public IssueSearchResponse searchIssue(String jql, String fields) {
         final StringBuilder urlBuilder = new StringBuilder(jiraBaseUrl + JiraPathConstant.SEARCH);
         urlBuilder.append('?')
                   .append(JQL).append('=')
@@ -40,11 +40,10 @@ public class JiraApiService {
                   .append('=')
                   .append(fields);
         final var res = restTemplate.exchange(urlBuilder.toString(), HttpMethod.GET, httpEntity,
-                                              ProjectSearchResponseDto.class);
-        log.info("search project error: {}", res.getStatusCode());
+                                              IssueSearchResponse.class);
         if (res.getStatusCode().is2xxSuccessful()) {
             return res.getBody();
         }
-        return new ProjectSearchResponseDto();
+        return new IssueSearchResponse();
     }
 }

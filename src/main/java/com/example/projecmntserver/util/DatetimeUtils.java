@@ -1,26 +1,36 @@
 package com.example.projecmntserver.util;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 
-import org.springframework.lang.Nullable;
+import javax.validation.constraints.NotNull;
+
 import org.springframework.util.StringUtils;
 
-import com.example.projecmntserver.constant.CommonConstant;
+import com.example.projecmntserver.constant.Constant;
 
 import lombok.AccessLevel;
 import lombok.NoArgsConstructor;
 
 @NoArgsConstructor(access = AccessLevel.PRIVATE)
 public final class DatetimeUtils {
-    public static LocalDate parse(String dateStr) {
+    public static LocalDate parse(@NotNull String dateStr) {
         return LocalDate.parse(dateStr,
                                DateTimeFormatter.ofPattern(
-                                       CommonConstant.DATE_PATTERN_1));
+                                       Constant.DATE_PATTERN));
     }
 
-    public static String toDate(LocalDate date, @Nullable String pattern) {
+    public static String toMonth(@NotNull LocalDate date) {
+        return toDate(date, Constant.MONTH_PATTERN);
+    }
+
+    public static String toDate(@NotNull LocalDate date, @NotNull String pattern) {
         return date.format(DateTimeFormatter.ofPattern(
-                StringUtils.hasText(pattern) ? pattern : CommonConstant.DATE_PATTERN_2));
+                StringUtils.hasText(pattern) ? pattern : Constant.DATE_PATTERN));
+    }
+
+    public static LocalDateTime getCurrentLocalDateTime() {
+        return LocalDateTime.now();
     }
 }

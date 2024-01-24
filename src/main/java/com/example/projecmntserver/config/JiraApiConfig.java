@@ -12,7 +12,7 @@ import org.springframework.http.MediaType;
 import org.springframework.http.client.ClientHttpRequestInterceptor;
 import org.springframework.web.client.RestTemplate;
 
-import com.example.projecmntserver.config.interceptor.RequestResponseLoggingInterceptor;
+import com.example.projecmntserver.config.interceptor.LoggingInterceptor;
 
 @Configuration
 public class JiraApiConfig {
@@ -25,7 +25,7 @@ public class JiraApiConfig {
     public RestTemplate restTemplate() {
         final RestTemplate restTemplate = new RestTemplate();
         final List<ClientHttpRequestInterceptor> interceptors = new ArrayList<>();
-        interceptors.add(new RequestResponseLoggingInterceptor());
+        interceptors.add(new LoggingInterceptor());
         restTemplate.setInterceptors(interceptors);
         return restTemplate;
     }
