@@ -34,8 +34,6 @@ public class LoggingFilter extends OncePerRequestFilter {
         }
 
         doLoggingFilter(wrap(request), wrap(response), filterChain);
-
-        filterChain.doFilter(request, response);
     }
 
     private static void doLoggingFilter(ContentCachingRequestWrapper request,

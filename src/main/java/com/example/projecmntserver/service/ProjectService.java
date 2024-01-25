@@ -186,8 +186,8 @@ public class ProjectService {
         return projectDto;
     }
 
-    private void getResolvedIssueDataPerMonth(
-            ProjectDto project, String jql, LocalDate fromDate, LocalDate toDate) {
+    private void getResolvedIssueDataPerMonth(ProjectDto project, String jql,
+                                              LocalDate fromDate, LocalDate toDate) {
         final var response = jiraApiService.searchIssue(
                 String.format("type NOT IN ( %s ) AND resolved >= %s AND resolved <= %s ",
                               String.join(", ", IGNORE_SEARCH_ISSUE), fromDate, toDate) + jql, "");
