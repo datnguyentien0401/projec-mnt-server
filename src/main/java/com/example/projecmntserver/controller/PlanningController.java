@@ -2,7 +2,6 @@ package com.example.projecmntserver.controller;
 
 import java.util.List;
 
-import org.springframework.data.crossstore.ChangeSetPersister.NotFoundException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.annotation.Validated;
@@ -42,7 +41,7 @@ public class PlanningController {
     @PutMapping("/{id}")
     public ResponseEntity<Planning> update(@PathVariable("id") Long id,
                                            @RequestBody PlanningDto planningDto)
-            throws JsonProcessingException, NotFoundException {
+            throws JsonProcessingException {
         return ResponseEntity.status(HttpStatus.OK).body(
                 planningService.update(id, planningDto));
     }

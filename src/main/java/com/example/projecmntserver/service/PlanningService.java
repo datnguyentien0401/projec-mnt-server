@@ -3,7 +3,6 @@ package com.example.projecmntserver.service;
 import java.util.ArrayList;
 import java.util.List;
 
-import org.springframework.data.crossstore.ChangeSetPersister.NotFoundException;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.domain.Sort.Direction;
 import org.springframework.stereotype.Service;
@@ -12,6 +11,7 @@ import com.example.projecmntserver.domain.Planning;
 import com.example.projecmntserver.dto.mapper.PlanningMapper;
 import com.example.projecmntserver.dto.request.PlanningDto;
 import com.example.projecmntserver.dto.response.PlanningResponse;
+import com.example.projecmntserver.exception.NotFoundException;
 import com.example.projecmntserver.repository.PlanningRepository;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -35,8 +35,9 @@ public class PlanningService {
         return planningRepository.save(planning);
     }
 
-    public Planning update(Long id, PlanningDto planningDto) throws NotFoundException, JsonProcessingException {
-        final var planning = planningRepository.findById(id).orElseThrow(NotFoundException::new);
+    public Planning update(Long id, PlanningDto planningDto) throws JsonProcessingException {
+        final var planning = planningRepository.findById(id).orElseThrow(
+                () -> new NotFoundException("Planing not found: " + id));
         modifyPlanning(planning, planningDto);
         return planningRepository.save(planning);
     }

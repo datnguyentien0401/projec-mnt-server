@@ -13,3 +13,25 @@ create table plannings
     created_at              datetime     null,
     updated_at              datetime     null
 );
+
+create table teams
+(
+    id         bigint auto_increment
+        primary key,
+    name       varchar(256) not null,
+    created_at datetime     null,
+    updated_at datetime     null
+);
+
+create table members
+(
+    id             bigint auto_increment
+        primary key,
+    name           varchar(256) not null,
+    team_id        bigint       not null,
+    jira_member_id varchar(64)  not null,
+    created_at     datetime     null,
+    updated_at     datetime     null,
+    constraint members_FK
+        foreign key (team_id) references teams (id)
+);
