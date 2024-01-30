@@ -26,7 +26,7 @@ public class MemberService {
     public Member create(MemberDto memberDto) {
         final Team team = teamRepository.findById(memberDto.getTeamId()).orElseThrow(
                 () -> new NotFoundException("Team not found: " + memberDto.getTeamId()));
-        final var memberOptional = memberRepository.findFirstByJiraMemberId(memberDto.getJiraMemberId());
+        final var memberOptional = memberRepository.findFirstByJiraMemberId(memberDto.getJiraMemberId().trim());
         final Member member;
         if (memberOptional.isPresent()) {
             member = memberOptional.get();

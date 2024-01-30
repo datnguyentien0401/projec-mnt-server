@@ -24,7 +24,7 @@ public class TeamService {
     private final TeamMapper teamMapper;
 
     public Team create(TeamDto teamDto) {
-        final Team team = teamRepository.findByName(teamDto.getName())
+        final Team team = teamRepository.findByName(teamDto.getName().trim())
                                         .orElse(teamMapper.toEntity(teamDto));
         return teamRepository.save(team);
     }
