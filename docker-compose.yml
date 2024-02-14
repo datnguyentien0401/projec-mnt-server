@@ -1,0 +1,33 @@
+version: '3.7'
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: app
+    ports:
+      - "8888:8888"
+    depends_on:
+      - mysqldb
+    environment:
+      - PROFILE=release
+    networks:
+      - springboot-mysql-network
+  mysqldb:
+    image: mysql:8.2.0
+    container_name: mysqldb
+    ports:
+      - "10306:3306"
+    environment:
+      - MYSQL_DATABASE=project_mnt
+      - MYSQL_ROOT_PASSWORD=123123a@
+    volumes:
+      - ./src/main/resources/sql:/docker-entrypoint-initdb.d/
+    networks:
+      - springboot-mysql-network
+volumes:
+  mysql-data:
+networks:
+  springboot-mysql-network:
+    name: springboot-mysql-network
+

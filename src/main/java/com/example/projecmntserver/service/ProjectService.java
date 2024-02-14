@@ -6,7 +6,6 @@ import static com.example.projecmntserver.constant.JiraFieldConstant.TIME_SPENT;
 import static com.example.projecmntserver.type.JiraIssueType.IGNORE_SEARCH_ISSUE;
 
 import java.time.LocalDate;
-import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -22,6 +21,7 @@ import org.springframework.util.CollectionUtils;
 import com.example.projecmntserver.dto.jira.EpicDto;
 import com.example.projecmntserver.dto.jira.IssueDto;
 import com.example.projecmntserver.dto.response.EpicRemainingResponse;
+import com.example.projecmntserver.dto.response.OverallTeamResponse;
 import com.example.projecmntserver.dto.response.ProjectDto;
 import com.example.projecmntserver.dto.response.ProjectResponse;
 import com.example.projecmntserver.util.DatetimeUtils;
@@ -52,7 +52,7 @@ public class ProjectService {
         }
         final List<EpicDto> allEpics = getAllEpics(epicIds, true);
 
-        final var monthCount = ChronoUnit.MONTHS.between(fromDate, toDate) + 1;
+        final var monthCount = DatetimeUtils.countMonth(fromDate, toDate);
         var initDate = fromDate;
         for (int i = 1; i <= monthCount; i++) {
             final boolean forColumnChart = i > monthCount - 3;
@@ -86,7 +86,7 @@ public class ProjectService {
         if (!CollectionUtils.isEmpty(epicIds)) {
             jql += String.format(" AND id IN (%s) ", String.join(",", epicIds));
         }
-        final var response = jiraApiService.searchIssue(jql, "");
+        final var response = jiraApiService.searchIssue(jql);
 
         final List<EpicDto> allEpics = new ArrayList<>();
         if (Objects.nonNull(response)) {
@@ -190,7 +190,7 @@ public class ProjectService {
                                               LocalDate fromDate, LocalDate toDate) {
         final var response = jiraApiService.searchIssue(
                 String.format("type NOT IN ( %s ) AND resolved >= %s AND resolved <= %s ",
-                              String.join(", ", IGNORE_SEARCH_ISSUE), fromDate, toDate) + jql, "");
+                              String.join(", ", IGNORE_SEARCH_ISSUE), fromDate, toDate) + jql);
 
         if (Objects.nonNull(response)) {
             project.setTotalResolvedIssue(response.getTotal());
@@ -219,8 +219,7 @@ public class ProjectService {
             final var response = jiraApiService.searchIssue(
                     String.format("type NOT IN ( %s ) AND 'epic link' IN ( %s ) ",
                                   String.join(", ", IGNORE_SEARCH_ISSUE),
-                                  String.join(", ", epic.getIds())),
-                    "");
+                                  String.join(", ", epic.getIds())));
             final Set<String> assigneeIdSet = new HashSet<>();
             if (Objects.nonNull(response)) {
                 final var issues = response.getIssues();
@@ -240,5 +239,62 @@ public class ProjectService {
             result.add(epicRemainingResponse);
         }
         return result;
+    }
+
+    public OverallTeamResponse getTeamOverall(LocalDate fromDate, LocalDate toDate,
+                                              List<String> jiraMemberIds) {
+        final OverallTeamResponse result = new OverallTeamResponse();
+        getTeamOverallResolvedIssue(result, fromDate, toDate, jiraMemberIds);
+        getTeamOverallTimeSpentAndStoryPoint(result, fromDate, toDate, jiraMemberIds);
+        return result;
+    }
+
+    private void getTeamOverallResolvedIssue(OverallTeamResponse result,
+                                             LocalDate fromDate, LocalDate toDate,
+                                             List<String> jiraMemberIds) {
+        String jql = String.format("type NOT IN ( %s ) AND resolved >= %s AND resolved <= %s ",
+                                   String.join(", ", IGNORE_SEARCH_ISSUE),
+                                   fromDate, toDate);
+        if (CollectionUtils.isEmpty(jiraMemberIds)) {
+            jql += String.format("AND assignee IN ( %s )", String.join(",", jiraMemberIds));
+        }
+        final var response = jiraApiService.searchIssue(jql);
+        if (Objects.nonNull(response)) {
+            final long monthCount = DatetimeUtils.countMonth(fromDate, toDate);
+            final var totalResolvedIssue = response.getTotal();
+            result.setTotalResolvedIssue(totalResolvedIssue);
+            result.setAvgResolvedIssue((double) (totalResolvedIssue / (monthCount * jiraMemberIds.size())));
+        }
+    }
+
+    private void getTeamOverallTimeSpentAndStoryPoint(OverallTeamResponse result,
+                                                      LocalDate fromDate, LocalDate toDate,
+                                                      List<String> jiraMemberIds) {
+        String jql = String.format("type NOT IN ( %s ) AND updated >= %s AND updated <= %s ",
+                                   String.join(", ", IGNORE_SEARCH_ISSUE),
+                                   fromDate, toDate);
+        if (CollectionUtils.isEmpty(jiraMemberIds)) {
+            jql += String.format("AND assignee IN ( %s )", String.join(",", jiraMemberIds));
+        }
+        final var response = jiraApiService.searchIssue(jql);
+
+        double totalTimeSpent = 0.0;
+        double totalStoryPoint = 0.0;
+        final long monthCount = DatetimeUtils.countMonth(fromDate, toDate);
+
+        if (Objects.nonNull(response)) {
+            final var issues = response.getIssues();
+            for (var issue : issues) {
+                final var fields = issue.getFields();
+                if (Objects.nonNull(fields.getTimeSpent())) {
+                    totalTimeSpent += fields.getTimeSpent();
+                }
+                if (Objects.nonNull(fields.getStoryPoint())) {
+                    totalStoryPoint += fields.getStoryPoint();
+                }
+            }
+        }
+        result.setAvgTimeSpent(totalTimeSpent / (monthCount * jiraMemberIds.size()));
+        result.setAvgStoryPoint(totalStoryPoint / (monthCount * jiraMemberIds.size()));
     }
 }

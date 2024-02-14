@@ -3,6 +3,7 @@ package com.example.projecmntserver.util;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.time.temporal.ChronoUnit;
 
 import javax.validation.constraints.NotNull;
 
@@ -32,5 +33,9 @@ public final class DatetimeUtils {
 
     public static LocalDateTime getCurrentLocalDateTime() {
         return LocalDateTime.now();
+    }
+
+    public static long countMonth(LocalDate fromDate, LocalDate toDate) {
+        return ChronoUnit.MONTHS.between(fromDate, toDate) + 1;
     }
 }

@@ -12,12 +12,15 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.example.projecmntserver.dto.mapper.TeamMapper;
 import com.example.projecmntserver.dto.request.TeamDto;
+import com.example.projecmntserver.dto.response.OverallTeamResponse;
 import com.example.projecmntserver.dto.response.TeamResponse;
 import com.example.projecmntserver.service.TeamService;
+import com.example.projecmntserver.util.DatetimeUtils;
 
 import lombok.RequiredArgsConstructor;
 
@@ -43,5 +46,12 @@ public class TeamController {
     public ResponseEntity<Void> create(@PathVariable Long id) {
         teamService.delete(id);
         return ResponseEntity.noContent().build();
+    }
+
+    @GetMapping("/overall")
+    public ResponseEntity<List<OverallTeamResponse>> getOverall(@RequestParam String fromDate,
+                                                                @RequestParam String toDate) {
+        return ResponseEntity.ok(teamService.getOverall(DatetimeUtils.parse(fromDate),
+                                                        DatetimeUtils.parse(toDate)));
     }
 }

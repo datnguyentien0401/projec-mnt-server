@@ -3,7 +3,6 @@ package com.example.projecmntserver.service;
 import static com.example.projecmntserver.constant.JiraParamConstant.FIELDS;
 import static com.example.projecmntserver.constant.JiraParamConstant.JQL;
 
-
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpMethod;
@@ -29,6 +28,10 @@ public class JiraApiService {
     public ProjectDto[] getAllProject() {
         return restTemplate.exchange(jiraBaseUrl + JiraPathConstant.GET_ALL, HttpMethod.GET, httpEntity,
                                      ProjectDto[].class).getBody();
+    }
+
+    public IssueSearchResponse searchIssue(String jql) {
+        return searchIssue(jql, "");
     }
 
     public IssueSearchResponse searchIssue(String jql, String fields) {
