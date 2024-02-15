@@ -29,7 +29,6 @@ import lombok.RequiredArgsConstructor;
 public class PlanningController {
 
     private final PlanningService planningService;
-//    private final PlanningMapper planningMapper;
 
     @PostMapping
     public ResponseEntity<Planning> create(@RequestBody PlanningDto planningDto)
