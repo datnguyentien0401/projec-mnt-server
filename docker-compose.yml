@@ -1,5 +1,17 @@
 version: '3.7'
 services:
+  mysqldb:
+    image: mysql:8.2.0
+    container_name: mysqldb
+    ports:
+      - "10306:3306"
+    environment:
+      - MYSQL_DATABASE=project_mnt
+      - MYSQL_ROOT_PASSWORD=123123a@
+    volumes:
+      - ./src/main/resources/sql:/docker-entrypoint-initdb.d/
+    networks:
+      - springboot-mysql-network
   app:
     build:
       context: .
@@ -11,18 +23,6 @@ services:
       - mysqldb
     environment:
       - PROFILE=release
-    networks:
-      - springboot-mysql-network
-  mysqldb:
-    image: mysql:8.2.0
-    container_name: mysqldb
-    ports:
-      - "10306:3306"
-    environment:
-      - MYSQL_DATABASE=project_mnt
-      - MYSQL_ROOT_PASSWORD=123123a@
-    volumes:
-      - ./src/main/resources/sql:/docker-entrypoint-initdb.d/
     networks:
       - springboot-mysql-network
 volumes:
