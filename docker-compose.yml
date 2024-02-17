@@ -30,4 +30,5 @@ volumes:
 networks:
   springboot-mysql-network:
     name: springboot-mysql-network
+    external: true
 
