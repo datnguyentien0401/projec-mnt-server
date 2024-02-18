@@ -1,16 +1,16 @@
 spring:
   datasource:
     hikari:
-      jdbc-url: jdbc:mysql://mysqldb:3306/project_mnt?characterEncoding=UTF-8&useUnicode=true&cachePrepStmts=true&useServerPrepStmts=true&reWriteBatchedInserts=true
+      jdbc-url: jdbc:mysql://34.125.125.134:3306/project_mnt?characterEncoding=UTF-8&useUnicode=true&cachePrepStmts=true&useServerPrepStmts=true&reWriteBatchedInserts=true
       username: root
       password: 123123a@
 
 jira:
   username: "dat.nt0401@gmail.com"
-  access-token: "ATATT3xFfGF0wRNGvQR5GKuIFu3JwJ4zPEkbgx5tq1t8jHrqsT0_RLU4VHFs5TIPzcVEgUyqMZ0GyocxmyRCtRi2fcCMl8cfDR-YJ0BuDDWDqg1qftdb_siXn8_w0Rr6D97x5XktmSedwbgQQkT_wx6gwe9p0QDbUobgZwWILOiAV9HNvwhedGc=54B47F91"
+  access-token: "ATATT3xFfGF0pHmfyioEHneNjBhZ3p2mZRriO6Gx_9H3an1zcgvByvMBEirLt1YYiOcZx90V-BxAoPA5i2ne0BvDwDf1wgMLOjBjGPp05ZoSutjxsVgMfjQIQHrpAF6NCYum-ygZdPGM1hB_qnOdLEQ9XYScxIbqcllPV8ErOYV_k88Cst_FTHs=87C3AAEA"
   base-url: "https://project-mnt.atlassian.net"
 
 web:
   config:
     cors-allow-all: false
-    corsOrigin: http://localhost:3000
+    corsOrigin: 34.125.228.182:3000

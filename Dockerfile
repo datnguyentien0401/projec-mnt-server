@@ -1,16 +1,16 @@
-FROM openjdk:17-oracle as builder
+FROM openjdk:17-oracle AS builder
 
-COPY --chown=gradle:gradle . /app
-WORKDIR /app
+COPY --chown=gradle:gradle . /home/gradle/src
+WORKDIR /home/gradle/src
 
 RUN microdnf install findutils
 RUN ./gradlew build
 
-FROM openjdk:17-oracle as runner
+FROM openjdk:17-oracle AS runner
 
 WORKDIR /app
 
-COPY --from=builder /app/build/libs/project-mnt-server-0.0.1-SNAPSHOT.jar ./app.jar
+COPY --from=builder /home/gradle/src/build/libs/projec-mnt-server-0.0.1-SNAPSHOT.jar /app/app.jar
 
 EXPOSE 8888
 
