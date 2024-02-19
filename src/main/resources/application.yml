@@ -16,7 +16,7 @@ spring:
 
 jira:
   username: "dat.nt0401@gmail.com"
-  access-token: "ATATT3xFfGF0pHmfyioEHneNjBhZ3p2mZRriO6Gx_9H3an1zcgvByvMBEirLt1YYiOcZx90V-BxAoPA5i2ne0BvDwDf1wgMLOjBjGPp05ZoSutjxsVgMfjQIQHrpAF6NCYum-ygZdPGM1hB_qnOdLEQ9XYScxIbqcllPV8ErOYV_k88Cst_FTHs=87C3AAEA"
+  access-token: "ATATT3xFfGF0cxaph0xGx8btvcuG9E4ReLrkCAUVq96Y-l-312s82TJ3UCyQ7qfHWF0kxR9SFKtVQ9zlkEYIqWkbTtV5imMj2JTKSacrs0DearhIU1OTl69tufRyY0R6QpLAOlmgVdj5KwQPSGODsQxGQ2wVCdCF53N-_bsX0wY4q2SfgFPvFWU=64E41FAA"
   base-url: "https://project-mnt.atlassian.net"
 
 web:
