@@ -13,4 +13,4 @@ jira:
 web:
   config:
     cors-allow-all: false
-    corsOrigin: 34.125.228.182:3000
+    corsOrigin: http://34.125.228.182:3000
