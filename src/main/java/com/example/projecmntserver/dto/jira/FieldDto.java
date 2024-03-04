@@ -2,6 +2,9 @@ package com.example.projecmntserver.dto.jira;
 
 import java.time.LocalDate;
 
+import org.springframework.format.annotation.DateTimeFormat;
+
+import com.example.projecmntserver.constant.Constant;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
@@ -26,5 +29,8 @@ public class FieldDto {
     @JsonProperty("timespent")
     private Long timeSpent;
     @JsonProperty("duedate")
+    @DateTimeFormat(pattern = Constant.DATE_TIME_PATTERN)
     private LocalDate dueDate;
+    @JsonProperty("updated")
+    private String updatedAt;
 }

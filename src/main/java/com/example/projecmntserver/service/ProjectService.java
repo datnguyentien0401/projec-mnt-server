@@ -20,6 +20,7 @@ import org.springframework.util.CollectionUtils;
 
 import com.example.projecmntserver.dto.jira.EpicDto;
 import com.example.projecmntserver.dto.jira.IssueDto;
+import com.example.projecmntserver.dto.jira.IssueSearchResponse;
 import com.example.projecmntserver.dto.response.EpicRemainingResponse;
 import com.example.projecmntserver.dto.response.OverallTeamResponse;
 import com.example.projecmntserver.dto.response.ProjectDto;
@@ -252,16 +253,11 @@ public class ProjectService {
     private void getTeamOverallResolvedIssue(OverallTeamResponse result,
                                              LocalDate fromDate, LocalDate toDate,
                                              List<String> jiraMemberIds) {
-        String jql = String.format("type NOT IN ( %s ) AND resolved >= %s AND resolved <= %s ",
-                                   String.join(", ", IGNORE_SEARCH_ISSUE),
-                                   fromDate, toDate);
-        if (CollectionUtils.isEmpty(jiraMemberIds)) {
-            jql += String.format("AND assignee IN ( %s )", String.join(",", jiraMemberIds));
-        }
-        final var response = jiraApiService.searchIssue(jql);
-        if (Objects.nonNull(response)) {
+        final var IssueSearchRes = getIssuesByAssignee(fromDate, toDate, jiraMemberIds, "resolved");
+
+        if (Objects.nonNull(IssueSearchRes)) {
             final long monthCount = DatetimeUtils.countMonth(fromDate, toDate);
-            final var totalResolvedIssue = response.getTotal();
+            final var totalResolvedIssue = IssueSearchRes.getTotal();
             result.setTotalResolvedIssue(totalResolvedIssue);
             result.setAvgResolvedIssue((double) (totalResolvedIssue / (monthCount * jiraMemberIds.size())));
         }
@@ -270,20 +266,14 @@ public class ProjectService {
     private void getTeamOverallTimeSpentAndStoryPoint(OverallTeamResponse result,
                                                       LocalDate fromDate, LocalDate toDate,
                                                       List<String> jiraMemberIds) {
-        String jql = String.format("type NOT IN ( %s ) AND updated >= %s AND updated <= %s ",
-                                   String.join(", ", IGNORE_SEARCH_ISSUE),
-                                   fromDate, toDate);
-        if (CollectionUtils.isEmpty(jiraMemberIds)) {
-            jql += String.format("AND assignee IN ( %s )", String.join(",", jiraMemberIds));
-        }
-        final var response = jiraApiService.searchIssue(jql);
+        final var IssueSearchRes = getIssuesByAssignee(fromDate, toDate, jiraMemberIds, "updated");
 
         double totalTimeSpent = 0.0;
         double totalStoryPoint = 0.0;
         final long monthCount = DatetimeUtils.countMonth(fromDate, toDate);
 
-        if (Objects.nonNull(response)) {
-            final var issues = response.getIssues();
+        if (Objects.nonNull(IssueSearchRes)) {
+            final var issues = IssueSearchRes.getIssues();
             for (var issue : issues) {
                 final var fields = issue.getFields();
                 if (Objects.nonNull(fields.getTimeSpent())) {
@@ -297,4 +287,17 @@ public class ProjectService {
         result.setAvgTimeSpent(totalTimeSpent / (monthCount * jiraMemberIds.size()));
         result.setAvgStoryPoint(totalStoryPoint / (monthCount * jiraMemberIds.size()));
     }
+
+    public IssueSearchResponse getIssuesByAssignee(LocalDate fromDate, LocalDate toDate,
+                                                    List<String> jiraMemberIds, String dateFieldName) {
+        String jql = String.format("type NOT IN ( %s ) AND %s >= %s AND %s <= %s ",
+                                   String.join(", ", IGNORE_SEARCH_ISSUE),
+                                   dateFieldName, fromDate,
+                                   dateFieldName, toDate);
+        if (!CollectionUtils.isEmpty(jiraMemberIds)) {
+            jql += String.format("AND assignee IN ( %s )", String.join(",", jiraMemberIds));
+        }
+        return jiraApiService.searchIssue(jql);
+    }
+
 }

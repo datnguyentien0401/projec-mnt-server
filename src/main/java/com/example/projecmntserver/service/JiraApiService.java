@@ -6,12 +6,14 @@ import static com.example.projecmntserver.constant.JiraParamConstant.JQL;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpMethod;
+import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
 
 import com.example.projecmntserver.constant.JiraPathConstant;
-import com.example.projecmntserver.dto.jira.ProjectDto;
 import com.example.projecmntserver.dto.jira.IssueSearchResponse;
+import com.example.projecmntserver.dto.jira.ProjectDto;
+import com.example.projecmntserver.dto.jira.UserSearchDto;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -48,5 +50,10 @@ public class JiraApiService {
             return res.getBody();
         }
         return new IssueSearchResponse();
+    }
+
+    public ResponseEntity<UserSearchDto[]> searchUser(String username) {
+        final String url = jiraBaseUrl + JiraPathConstant.USER_SEARCH + String.format("?query=%s", username);
+        return restTemplate.exchange(url, HttpMethod.GET, httpEntity, UserSearchDto[].class);
     }
 }

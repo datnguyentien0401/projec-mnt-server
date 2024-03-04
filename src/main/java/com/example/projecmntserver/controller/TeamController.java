@@ -19,6 +19,7 @@ import com.example.projecmntserver.dto.mapper.TeamMapper;
 import com.example.projecmntserver.dto.request.TeamDto;
 import com.example.projecmntserver.dto.response.OverallTeamResponse;
 import com.example.projecmntserver.dto.response.TeamResponse;
+import com.example.projecmntserver.dto.response.TeamViewResponse;
 import com.example.projecmntserver.service.TeamService;
 import com.example.projecmntserver.util.DatetimeUtils;
 
@@ -53,5 +54,14 @@ public class TeamController {
                                                                 @RequestParam String toDate) {
         return ResponseEntity.ok(teamService.getOverall(DatetimeUtils.parse(fromDate),
                                                         DatetimeUtils.parse(toDate)));
+    }
+
+    @GetMapping("/{id}/team-view")
+    public ResponseEntity<TeamViewResponse> getTeamView(@PathVariable Long id,
+                                                        @RequestParam String fromDate,
+                                                        @RequestParam String toDate) {
+        return ResponseEntity.ok(teamService.getTeamView(DatetimeUtils.parse(fromDate),
+                                                         DatetimeUtils.parse(toDate),
+                                                         id));
     }
 }

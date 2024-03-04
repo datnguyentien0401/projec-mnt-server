@@ -29,6 +29,11 @@ public class MemberController {
     private final MemberService memberService;
     private final MemberMapper memberMapper;
 
+    @GetMapping("/team/{teamId}")
+    public ResponseEntity<List<MemberResponse>> getAllByTeamId(@PathVariable Long teamId) {
+        return ResponseEntity.ok(memberMapper.toResponse(memberService.findByTeamId(teamId)));
+    }
+
     @GetMapping
     public ResponseEntity<List<MemberResponse>> getAll() {
         return ResponseEntity.ok(memberMapper.toResponse(memberService.findAll()));
