@@ -1,5 +1,7 @@
 package com.example.projecmntserver.util;
 
+import java.text.DecimalFormat;
+
 import lombok.AccessLevel;
 import lombok.NoArgsConstructor;
 
@@ -18,5 +20,13 @@ public final class NumberUtils {
         } else {
             throw new IllegalArgumentException("Unsupported numeric type" + a + ' ' + b);
         }
+    }
+
+    public static double round(double number) {
+        return round(number, new DecimalFormat("#.#"));
+    }
+
+    public static double round(double number, DecimalFormat df) {
+        return Double.parseDouble(df.format(number));
     }
 }

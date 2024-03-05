@@ -8,6 +8,7 @@ import java.util.Set;
 import org.springframework.util.CollectionUtils;
 
 import com.example.projecmntserver.constant.Constant;
+import com.example.projecmntserver.util.NumberUtils;
 
 import lombok.AllArgsConstructor;
 import lombok.Data;
@@ -38,11 +39,11 @@ public class ProjectDto {
     }
 
     public Double getTotalTimeSpentMM() {
-        return (double) totalTimeSpent / Constant.TIME_MM;
+        return NumberUtils.round((double) totalTimeSpent / Constant.TIME_MM);
     }
 
     public Double getTotalTimeSpentMD() {
-        return (double) totalTimeSpent / Constant.TIME_MD;
+        return NumberUtils.round((double) totalTimeSpent / Constant.TIME_MD);
     }
 
     public Integer getTotalHeadCount() {
