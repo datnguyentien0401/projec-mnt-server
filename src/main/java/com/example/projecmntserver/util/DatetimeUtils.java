@@ -27,6 +27,10 @@ public final class DatetimeUtils {
                                        Constant.DATE_PATTERN));
     }
 
+    public static LocalDateTime parseDatetime(@NotNull String datetimeStr) {
+        return LocalDateTime.parse(datetimeStr, DateTimeFormatter.ofPattern(Constant.DATE_TIME_PATTERN));
+    }
+
     public static LocalDateTime parseDatetime(@NotNull String datetimeStr, @Nullable String pattern) {
         return LocalDateTime.parse(datetimeStr, DateTimeFormatter.ofPattern(
                 StringUtils.hasText(pattern) ? pattern : Constant.DATE_TIME_PATTERN));

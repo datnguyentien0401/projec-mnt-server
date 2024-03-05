@@ -32,12 +32,12 @@ public class ProjectController {
             @RequestParam(required = false) List<String> projectIds,
             @RequestParam String fromDate,
             @RequestParam String toDate) {
-        return ResponseEntity.ok(projectService.getProjectStatistic(getEpicIds(projectIds),
-                                                                    DatetimeUtils.parse(fromDate),
-                                                                    DatetimeUtils.parse(toDate)));
+        return ResponseEntity.ok(projectService.getProjectStatisticV2(getEpicIds(projectIds),
+                                                                      DatetimeUtils.parse(fromDate),
+                                                                      DatetimeUtils.parse(toDate)));
     }
 
-    private List<String> getEpicIds(List<String> projectIds) {
+    private static List<String> getEpicIds(List<String> projectIds) {
         final List<String> epicIds = new ArrayList<>();
         if (!CollectionUtils.isEmpty(projectIds)) {
             for (var projectId : projectIds) {

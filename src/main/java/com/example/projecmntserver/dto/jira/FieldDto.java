@@ -33,4 +33,6 @@ public class FieldDto {
     private LocalDate dueDate;
     @JsonProperty("updated")
     private String updatedAt;
+    @JsonProperty("resolutiondate")
+    private String resolvedAt;
 }
