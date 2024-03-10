@@ -18,6 +18,7 @@ import java.util.Set;
 import org.springframework.stereotype.Service;
 import org.springframework.util.CollectionUtils;
 
+import com.example.projecmntserver.constant.Constant;
 import com.example.projecmntserver.dto.jira.EpicDto;
 import com.example.projecmntserver.dto.jira.IssueDto;
 import com.example.projecmntserver.dto.jira.IssueSearchResponse;
@@ -36,8 +37,11 @@ import lombok.extern.slf4j.Slf4j;
 public class ProjectService {
     private final JiraApiService jiraApiService;
 
-    public List<EpicDto> getAllProject(boolean groupEpic) {
-        return getAllEpics(new ArrayList<>(), groupEpic);
+    public List<EpicDto> getAllProject(String projectName, boolean groupEpic) {
+        return getAllEpics(new ArrayList<>(), groupEpic)
+                .stream()
+                .filter(item -> item.getProjectName().toLowerCase().contains(projectName))
+                .toList();
     }
 
     public ProjectResponse getProjectStatisticV2(List<String> epicIds,
@@ -435,7 +439,7 @@ public class ProjectService {
             final long monthCount = DatetimeUtils.countMonth(fromDate, toDate);
             final var totalResolvedIssue = IssueSearchRes.getTotal();
             result.setTotalResolvedIssue(totalResolvedIssue);
-            result.setAvgResolvedIssue((double) (totalResolvedIssue / (monthCount * jiraMemberIds.size())));
+            result.setAvgResolvedIssue((double) totalResolvedIssue / (monthCount * jiraMemberIds.size()));
         }
     }
 
@@ -460,7 +464,7 @@ public class ProjectService {
                 }
             }
         }
-        result.setAvgTimeSpent(totalTimeSpent / (monthCount * jiraMemberIds.size()));
+        result.setAvgTimeSpent(totalTimeSpent / Constant.TIME_MM / (monthCount * jiraMemberIds.size()));
         result.setAvgStoryPoint(totalStoryPoint / (monthCount * jiraMemberIds.size()));
     }
 
