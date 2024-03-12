@@ -58,8 +58,7 @@ public class ProjectController {
 
     @GetMapping("/epic")
     public ResponseEntity<List<EpicDto>> getAll(
-            @RequestParam(required = false) String projectName,
             @RequestParam(required = false, defaultValue = "true") Boolean groupEpic) {
-        return ResponseEntity.ok(projectService.getAllProject(projectName, groupEpic));
+        return ResponseEntity.ok(projectService.getAllProject(groupEpic));
     }
 }

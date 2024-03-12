@@ -37,11 +37,8 @@ import lombok.extern.slf4j.Slf4j;
 public class ProjectService {
     private final JiraApiService jiraApiService;
 
-    public List<EpicDto> getAllProject(String projectName, boolean groupEpic) {
-        return getAllEpics(new ArrayList<>(), groupEpic)
-                .stream()
-                .filter(item -> item.getProjectName().toLowerCase().contains(projectName))
-                .toList();
+    public List<EpicDto> getAllProject(boolean groupEpic) {
+        return getAllEpics(new ArrayList<>(), groupEpic);
     }
 
     public ProjectResponse getProjectStatisticV2(List<String> epicIds,
