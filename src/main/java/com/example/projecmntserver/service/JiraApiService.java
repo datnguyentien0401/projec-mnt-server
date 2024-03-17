@@ -3,6 +3,11 @@ package com.example.projecmntserver.service;
 import static com.example.projecmntserver.constant.JiraParamConstant.FIELDS;
 import static com.example.projecmntserver.constant.JiraParamConstant.JQL;
 
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
+import java.util.Objects;
+
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpMethod;
@@ -52,8 +57,14 @@ public class JiraApiService {
         return new IssueSearchResponse();
     }
 
-    public ResponseEntity<UserSearchDto[]> searchUser(String username) {
+    public List<UserSearchDto> searchUser(String username) {
         final String url = jiraBaseUrl + JiraPathConstant.USER_SEARCH + String.format("?query=%s", username);
-        return restTemplate.exchange(url, HttpMethod.GET, httpEntity, UserSearchDto[].class);
+        final ResponseEntity<UserSearchDto[]> response = restTemplate.exchange(url, HttpMethod.GET, httpEntity,
+                                                                               UserSearchDto[].class);
+        final UserSearchDto[] users = response.getBody();
+        if (Objects.nonNull(users) && users.length > 0) {
+            return Arrays.stream(users).filter(u -> !"app".equals(u.getAccountType())).toList();
+        }
+        return new ArrayList<>();
     }
 }

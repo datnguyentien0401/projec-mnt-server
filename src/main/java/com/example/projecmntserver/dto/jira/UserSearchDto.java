@@ -12,4 +12,6 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 public class UserSearchDto {
     private String displayName;
+    private String accountId;
+    private String accountType;
 }
