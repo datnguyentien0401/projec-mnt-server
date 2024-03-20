@@ -22,6 +22,7 @@ import com.example.projecmntserver.constant.Constant;
 import com.example.projecmntserver.dto.jira.EpicDto;
 import com.example.projecmntserver.dto.jira.IssueDto;
 import com.example.projecmntserver.dto.jira.IssueSearchResponse;
+import com.example.projecmntserver.dto.jira.JiraProjectDto;
 import com.example.projecmntserver.dto.response.EpicRemainingResponse;
 import com.example.projecmntserver.dto.response.OverallTeamResponse;
 import com.example.projecmntserver.dto.response.ProjectDto;
@@ -37,8 +38,8 @@ import lombok.extern.slf4j.Slf4j;
 public class ProjectService {
     private final JiraApiService jiraApiService;
 
-    public List<EpicDto> getAllProject(boolean groupEpic) {
-        return getAllEpics(new ArrayList<>(), groupEpic);
+    public List<EpicDto> getAllEpic(List<String> jiraProjectIds, boolean groupEpic) {
+        return getAllEpics(new ArrayList<>(), jiraProjectIds, groupEpic);
     }
 
     public ProjectResponse getProjectStatisticV2(List<String> epicIds,
@@ -136,7 +137,7 @@ public class ProjectService {
                                                                    LocalDate fromDate,
                                                                    LocalDate toDate) {
         final List<Map<String, ProjectDto>> results = new ArrayList<>();
-        final List<EpicDto> allEpics = getAllEpics(epicIds, true);
+        final List<EpicDto> allEpics = getAllEpics(epicIds, new ArrayList<>(), true);
 
         for (var epic : allEpics) {
             final String jql = String.format("AND 'epic link' IN ( %s )", String.join(", ", epic.getIds()));
@@ -228,7 +229,7 @@ public class ProjectService {
         if (!CollectionUtils.isEmpty(epicIds)) {
             jql = String.format(" AND 'epic link' IN ( %s )", String.join(", ", epicIds));
         }
-        final List<EpicDto> allEpics = getAllEpics(epicIds, true);
+        final List<EpicDto> allEpics = getAllEpics(epicIds, new ArrayList<>(), true);
 
         final var monthCount = DatetimeUtils.countMonth(fromDate, toDate);
         var initDate = fromDate;
@@ -259,10 +260,12 @@ public class ProjectService {
         return projectResponse;
     }
 
-    public List<EpicDto> getAllEpics(List<String> epicIds, boolean groupEpic) {
+    public List<EpicDto> getAllEpics(List<String> epicIds, List<String> jiraProjectIds, boolean groupEpic) {
         String jql = "issuetype = 'epic' ";
         if (!CollectionUtils.isEmpty(epicIds)) {
             jql += String.format(" AND id IN (%s) ", String.join(",", epicIds));
+        } else if (!CollectionUtils.isEmpty(jiraProjectIds)) {
+            jql += String.format(" AND project IN (%s) ", String.join(",", jiraProjectIds));
         }
         final var response = jiraApiService.searchIssue(jql);
 
@@ -386,7 +389,7 @@ public class ProjectService {
 
     public List<EpicRemainingResponse> getEpicRemaining(List<String> epicIds) {
         final List<EpicRemainingResponse> result = new ArrayList<>();
-        final List<EpicDto> allEpics = getAllEpics(epicIds, false);
+        final List<EpicDto> allEpics = getAllEpics(epicIds, new ArrayList<>(), false);
         for (var epic : allEpics) {
             final var epicRemainingResponse = new EpicRemainingResponse();
             epicRemainingResponse.setEpicName(epic.getName());
@@ -477,4 +480,11 @@ public class ProjectService {
         return jiraApiService.searchIssue(jql);
     }
 
+    public List<JiraProjectDto> getJiraProject(String jiraProjectName) {
+        final var response = jiraApiService.getAllProject(jiraProjectName);
+        if (response == null) {
+            return new ArrayList<>();
+        }
+        return List.of(response);
+    }
 }

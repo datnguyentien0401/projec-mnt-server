@@ -13,6 +13,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.example.projecmntserver.dto.jira.EpicDto;
+import com.example.projecmntserver.dto.jira.JiraProjectDto;
 import com.example.projecmntserver.dto.response.EpicRemainingResponse;
 import com.example.projecmntserver.dto.response.ProjectResponse;
 import com.example.projecmntserver.service.ProjectService;
@@ -28,11 +29,17 @@ public class ProjectController {
     private final ProjectService projectService;
 
     @GetMapping("/search")
+    public ResponseEntity<List<JiraProjectDto>> search(
+            @RequestParam(required = false) String jiraProjectName) {
+        return ResponseEntity.ok(projectService.getJiraProject(jiraProjectName));
+    }
+
+    @GetMapping("/epic/search")
     public ResponseEntity<ProjectResponse> search(
-            @RequestParam(required = false) List<String> projectIds,
+            @RequestParam List<String> epicIds,
             @RequestParam String fromDate,
             @RequestParam String toDate) {
-        return ResponseEntity.ok(projectService.getProjectStatisticV2(getEpicIds(projectIds),
+        return ResponseEntity.ok(projectService.getProjectStatisticV2(getEpicIds(epicIds),
                                                                       DatetimeUtils.parse(fromDate),
                                                                       DatetimeUtils.parse(toDate)));
     }
@@ -58,7 +65,8 @@ public class ProjectController {
 
     @GetMapping("/epic")
     public ResponseEntity<List<EpicDto>> getAll(
+            @RequestParam List<String> jiraProjectIds,
             @RequestParam(required = false, defaultValue = "true") Boolean groupEpic) {
-        return ResponseEntity.ok(projectService.getAllProject(groupEpic));
+        return ResponseEntity.ok(projectService.getAllEpic(jiraProjectIds, groupEpic));
     }
 }

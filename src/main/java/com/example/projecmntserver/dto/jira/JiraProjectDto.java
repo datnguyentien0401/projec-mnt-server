@@ -6,7 +6,7 @@ import lombok.Data;
 
 @Data
 @JsonIgnoreProperties(ignoreUnknown = true)
-public class ProjectDto {
+public class JiraProjectDto {
     private String id;
     private String key;
     private String name;

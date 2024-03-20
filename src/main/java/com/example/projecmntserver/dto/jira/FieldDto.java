@@ -17,7 +17,7 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 @NoArgsConstructor
 public class FieldDto {
-    private ProjectDto project;
+    private JiraProjectDto project;
     private AssigneeDto assignee;
     private StatusDto status;
     @JsonProperty("summary")
