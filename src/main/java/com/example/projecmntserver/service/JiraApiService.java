@@ -1,7 +1,11 @@
 package com.example.projecmntserver.service;
 
+import static com.example.projecmntserver.constant.Constant.JIRA_ACCOUNT_TYPE_APP;
+import static com.example.projecmntserver.constant.Constant.MAX_RESULT_SEARCH_JIRA;
 import static com.example.projecmntserver.constant.JiraParamConstant.FIELDS;
 import static com.example.projecmntserver.constant.JiraParamConstant.JQL;
+import static com.example.projecmntserver.constant.JiraParamConstant.MAX_RESULTS;
+import static com.example.projecmntserver.constant.JiraParamConstant.START_AT;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -9,6 +13,7 @@ import java.util.List;
 import java.util.Objects;
 
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.ResponseEntity;
@@ -40,17 +45,33 @@ public class JiraApiService {
     }
 
     public IssueSearchResponse searchIssue(String jql) {
-        return searchIssue(jql, "");
+        final PageRequest page = PageRequest.ofSize(MAX_RESULT_SEARCH_JIRA);
+        final IssueSearchResponse response = searchIssueWithPage(jql, "", page);
+        while (Objects.nonNull(response) && response.getTotal() >= page.getPageSize() * (page.getPageNumber() + 1)) {
+            page.withPage(page.getPageNumber() + 1);
+            final var nextPageResponse = searchIssueWithPage(jql, "", page);
+            if (Objects.isNull(nextPageResponse)) {
+                break;
+            }
+            response.getIssues().addAll(nextPageResponse.getIssues());
+        }
+        return response;
     }
 
-    public IssueSearchResponse searchIssue(String jql, String fields) {
+    public IssueSearchResponse searchIssueWithPage(String jql, String fields, PageRequest page) {
         final StringBuilder urlBuilder = new StringBuilder(jiraBaseUrl + JiraPathConstant.SEARCH);
         urlBuilder.append('?')
                   .append(JQL).append('=')
                   .append(jql)
                   .append('&').append(FIELDS)
                   .append('=')
-                  .append(fields);
+                  .append(fields)
+                  .append('&').append(MAX_RESULTS)
+                  .append('=')
+                  .append(page.getPageSize())
+                  .append('&').append(START_AT)
+                  .append('=')
+                  .append(page.getPageNumber());
         final var res = restTemplate.exchange(urlBuilder.toString(), HttpMethod.GET, httpEntity,
                                               IssueSearchResponse.class);
         if (res.getStatusCode().is2xxSuccessful()) {
@@ -60,12 +81,12 @@ public class JiraApiService {
     }
 
     public List<UserSearchDto> searchUser(String username) {
-        final String url = jiraBaseUrl + JiraPathConstant.USER_SEARCH + String.format("?query=%s", username);
+        final String url = jiraBaseUrl + JiraPathConstant.USER_SEARCH + String.format("?query=%s&maxResults=%s", username, MAX_RESULT_SEARCH_JIRA);
         final ResponseEntity<UserSearchDto[]> response = restTemplate.exchange(url, HttpMethod.GET, httpEntity,
                                                                                UserSearchDto[].class);
         final UserSearchDto[] users = response.getBody();
         if (Objects.nonNull(users) && users.length > 0) {
-            return Arrays.stream(users).filter(u -> !"app".equals(u.getAccountType())).toList();
+            return Arrays.stream(users).filter(u -> !JIRA_ACCOUNT_TYPE_APP.equals(u.getAccountType())).toList();
         }
         return new ArrayList<>();
     }
