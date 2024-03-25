@@ -4,6 +4,7 @@ import static com.example.projecmntserver.type.JiraIssueType.IGNORE_SEARCH_ISSUE
 
 import java.time.LocalDate;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -57,10 +58,20 @@ public class ProjectService {
 
         projectResponse.setTotalData(
                 new ArrayList<>(
-                        getProjectSumDataPerMonthV2(response.getIssues(), jql, fromDate, toDate).values()));
+                        getProjectSumDataPerMonthV2(response.getIssues(), jql, fromDate, toDate).values())
+                        .stream()
+                        .sorted(Comparator.comparing(ProjectDto::getMonth))
+                        .toList());
 
         getProjectListPerMonthV2(epicIds, fromDate, toDate)
                 .forEach(projectByEpic -> projectResponse.getListData().addAll(projectByEpic.values()));
+
+        //sort
+        projectResponse.setListData(
+                projectResponse.getListData()
+                               .stream()
+                               .sorted(Comparator.comparing(ProjectDto::getMonth))
+                               .toList());
 
         return projectResponse;
     }
@@ -132,7 +143,7 @@ public class ProjectService {
     private List<Map<String, ProjectDto>> getProjectListPerMonthV2(List<String> epicIds,
                                                                    LocalDate fromDate,
                                                                    LocalDate toDate) {
-        final List<Map<String, ProjectDto>> results = new ArrayList<>();
+        final List<Map<String, ProjectDto>> projectByMonthList = new ArrayList<>();
         final List<EpicDto> allEpics = getAllEpics(epicIds, new ArrayList<>(), true);
 
         for (var epic : allEpics) {
@@ -181,10 +192,10 @@ public class ProjectService {
             }
             getResolvedIssueDataPerMonthV2(projectByMonth, jql, fromDate, toDate);
 
-            results.add(projectByMonth);
+            projectByMonthList.add(projectByMonth);
         }
 
-        return results;
+        return projectByMonthList;
     }
 
     private void getResolvedIssueDataPerMonthV2(Map<String, ProjectDto> projectByMonth, String jql,
