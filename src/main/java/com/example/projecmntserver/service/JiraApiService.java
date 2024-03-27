@@ -45,10 +45,10 @@ public class JiraApiService {
     }
 
     public IssueSearchResponse searchIssue(String jql) {
-        final PageRequest page = PageRequest.ofSize(MAX_RESULT_SEARCH_JIRA);
+        PageRequest page = PageRequest.ofSize(MAX_RESULT_SEARCH_JIRA);
         final IssueSearchResponse response = searchIssueWithPage(jql, "", page);
-        while (Objects.nonNull(response) && response.getTotal() >= page.getPageSize() * (page.getPageNumber() + 1)) {
-            page.withPage(page.getPageNumber() + 1);
+        while (Objects.nonNull(response) && response.getTotal() > page.getPageSize() * (page.getPageNumber() + 1)) {
+            page = PageRequest.of(page.getPageNumber() + 1, MAX_RESULT_SEARCH_JIRA);
             final var nextPageResponse = searchIssueWithPage(jql, "", page);
             if (Objects.isNull(nextPageResponse)) {
                 break;
