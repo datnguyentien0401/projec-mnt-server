@@ -25,6 +25,7 @@ import com.example.projecmntserver.dto.response.OverallTeamResponse;
 import com.example.projecmntserver.dto.response.ProjectDto;
 import com.example.projecmntserver.dto.response.ProjectResponse;
 import com.example.projecmntserver.util.DatetimeUtils;
+import com.example.projecmntserver.util.NumberUtils;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -312,7 +313,8 @@ public class ProjectService {
             final long monthCount = DatetimeUtils.countMonth(fromDate, toDate);
             final var totalResolvedIssue = IssueSearchRes.getTotal();
             result.setTotalResolvedIssue(totalResolvedIssue);
-            result.setAvgResolvedIssue((double) totalResolvedIssue / (monthCount * jiraMemberIds.size()));
+            result.setAvgResolvedIssue(
+                    NumberUtils.round((double) totalResolvedIssue / (monthCount * jiraMemberIds.size())));
         }
     }
 
@@ -337,8 +339,8 @@ public class ProjectService {
                 }
             }
         }
-        result.setAvgTimeSpent(totalTimeSpent / Constant.TIME_MM / (monthCount * jiraMemberIds.size()));
-        result.setAvgStoryPoint(totalStoryPoint / (monthCount * jiraMemberIds.size()));
+        result.setAvgTimeSpent(NumberUtils.round(totalTimeSpent / Constant.TIME_MM / (monthCount * jiraMemberIds.size())));
+        result.setAvgStoryPoint(NumberUtils.round(totalStoryPoint / (monthCount * jiraMemberIds.size())));
     }
 
     public IssueSearchResponse getIssuesByAssignee(LocalDate fromDate, LocalDate toDate,
