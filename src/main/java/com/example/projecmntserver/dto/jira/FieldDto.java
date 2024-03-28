@@ -22,7 +22,7 @@ public class FieldDto {
     private StatusDto status;
     @JsonProperty("summary")
     private String epicName;
-    @JsonProperty("customfield_10031")
+    @JsonProperty("customfield_10308")
     private Double storyPoint;
     @JsonProperty("timeestimate")
     private Long timeEstimate;
