@@ -6,6 +6,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 import javax.transaction.Transactional;
@@ -13,6 +14,7 @@ import javax.transaction.Transactional;
 import org.springframework.stereotype.Service;
 import org.springframework.util.CollectionUtils;
 
+import com.example.projecmntserver.constant.Constant;
 import com.example.projecmntserver.domain.Member;
 import com.example.projecmntserver.domain.Team;
 import com.example.projecmntserver.dto.mapper.TeamMapper;
@@ -90,7 +92,7 @@ public class TeamService {
                                                                               new ArrayList<>(member.keySet()),
                                                                               "resolved");
 
-        final Map<Integer, Map<String, Integer>> resolvedIssueData = new HashMap<>();
+        final Map<Integer, Map<String, Object>> resolvedIssueData = new HashMap<>();
         final Map<String, Map<Integer, Integer>> resolvedIssueChartData = new HashMap<>();
 
         if(Objects.nonNull(ResolvedIssueSearchRes)) {
@@ -108,8 +110,7 @@ public class TeamService {
                 setChartData(resolvedIssueChartData, accountId, month, Integer.valueOf(1));
             }
         }
-        resolvedIssueData.forEach((key, value) -> value.put("month", key));
-        result.setResolvedIssueData(new ArrayList<>(resolvedIssueData.values()));
+        result.setResolvedIssueData(addMonthHasNoDataAndRoundData(resolvedIssueData, fromDate, toDate));
 
         final Map<String, Object> resolvedIssueChartDataFormatted = new HashMap<>();
         resolvedIssueChartData.forEach((chartDataKey, map) -> {
@@ -128,8 +129,8 @@ public class TeamService {
                                                                       new ArrayList<>(member.keySet()),
                                                                       "updated");
 
-        final Map<Integer, Map<String, Long>> timeSpentData = new HashMap<>();
-        final Map<Integer, Map<String, Double>> storyPointData = new HashMap<>();
+        final Map<Integer, Map<String, Object>> timeSpentData = new HashMap<>();
+        final Map<Integer, Map<String, Object>> storyPointData = new HashMap<>();
 
         if(Objects.nonNull(IssueSearchRes)) {
             final var issues = IssueSearchRes.getIssues();
@@ -142,18 +143,38 @@ public class TeamService {
                 final String accountId = assignee.getAccountId();
                 final int month = DatetimeUtils.parseDatetime(fields.getUpdatedAt(), null).getMonthValue();
                 if (Objects.nonNull(fields.getTimeSpent())) {
-                    setData(timeSpentData, month, accountId, fields.getTimeSpent());
+                    setData(timeSpentData, month, accountId, (double) fields.getTimeSpent() / Constant.TIME_MM);
                 }
                 if (Objects.nonNull(fields.getStoryPoint())) {
                     setData(storyPointData, month, accountId, fields.getStoryPoint());
                 }
             }
         }
-        timeSpentData.forEach((key, value) -> value.put("month", (long) key));
-        storyPointData.forEach((key, value) -> value.put("month", (double) key));
 
-        result.setTimeSpentData(new ArrayList<>(timeSpentData.values()));
-        result.setStoryPointData(new ArrayList<>(storyPointData.values()));
+        result.setTimeSpentData(addMonthHasNoDataAndRoundData(timeSpentData, fromDate, toDate));
+        result.setStoryPointData(addMonthHasNoDataAndRoundData(storyPointData, fromDate, toDate));
+    }
+
+    private static List<Map<String, Object>> addMonthHasNoDataAndRoundData(Map<Integer, Map<String, Object>> dataByMonth,
+                                          LocalDate fromDate, LocalDate toDate) {
+        final Set<Integer> monthHasData = dataByMonth.keySet();
+        final int fromMonth = fromDate.getMonthValue();
+        final int toMonth = toDate.getMonthValue();
+
+        for (int month=fromMonth; month<=toMonth; month++) {
+            if (monthHasData.contains(month)) {
+                final var data = dataByMonth.get(month);
+                data.forEach((k, v) -> {
+                    if (v instanceof Double) {
+                        data.put(k, NumberUtils.round((double) v));
+                    }
+                });
+                data.put("month", (double) month);
+                continue;
+            }
+            dataByMonth.put(month, Map.of("month", (double) month));
+        }
+        return new ArrayList<>(dataByMonth.values());
     }
 
     private static <T> void setData(Map<Integer, Map<String, T>> data, int dataKey,

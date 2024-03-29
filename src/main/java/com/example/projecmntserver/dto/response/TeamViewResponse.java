@@ -12,8 +12,8 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 @NoArgsConstructor
 public class TeamViewResponse {
-    List<Map<String, Long>> timeSpentData = new ArrayList<>();
-    List<Map<String, Double>> storyPointData = new ArrayList<>();
-    List<Map<String, Integer>> resolvedIssueData = new ArrayList<>();
+    List<Map<String, Object>> timeSpentData = new ArrayList<>();
+    List<Map<String, Object>> storyPointData = new ArrayList<>();
+    List<Map<String, Object>> resolvedIssueData = new ArrayList<>();
     List<Map<String, Object>> resolvedIssueChartData = new ArrayList<>();
 }
