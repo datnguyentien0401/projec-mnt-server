@@ -13,7 +13,7 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 public class PlanningResponse extends BaseResponse {
     private String name;
-    private String key;
+    private String tableKey;
     private LocalDate fromDate;
     private LocalDate toDate;
     private Object availableWorkingData;
