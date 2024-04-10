@@ -104,8 +104,7 @@ public class TeamService {
                     continue;
                 }
                 final String accountId = assignee.getAccountId();
-                final int month = DatetimeUtils.parseDatetime(fields.getUpdatedAt(), null).getMonthValue();
-
+                final int month = DatetimeUtils.parseDatetime(fields.getResolvedAt(), null).getMonthValue();
                 setData(resolvedIssueData, month, accountId, Integer.valueOf(1));
                 setChartData(resolvedIssueChartData, accountId, month, Integer.valueOf(1));
             }
@@ -161,7 +160,7 @@ public class TeamService {
         final int fromMonth = fromDate.getMonthValue();
         final int toMonth = toDate.getMonthValue();
 
-        for (int month=fromMonth; month<=toMonth; month++) {
+        for (int month = fromMonth; month <= toMonth; month++) {
             if (monthHasData.contains(month)) {
                 final var data = dataByMonth.get(month);
                 data.forEach((k, v) -> {
@@ -170,9 +169,10 @@ public class TeamService {
                     }
                 });
                 data.put("month", (double) month);
-                continue;
+                dataByMonth.put(month, data);
+            } else {
+                dataByMonth.put(month, Map.of("month", (double) month));
             }
-            dataByMonth.put(month, Map.of("month", (double) month));
         }
         return new ArrayList<>(dataByMonth.values());
     }
