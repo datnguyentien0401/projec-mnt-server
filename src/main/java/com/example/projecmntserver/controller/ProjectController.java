@@ -17,6 +17,7 @@ import com.example.projecmntserver.dto.jira.JiraProjectDto;
 import com.example.projecmntserver.dto.response.EpicRemainingResponse;
 import com.example.projecmntserver.dto.response.ProjectResponse;
 import com.example.projecmntserver.service.ProjectService;
+import com.example.projecmntserver.type.ProjectSearchType;
 import com.example.projecmntserver.util.DatetimeUtils;
 
 import lombok.RequiredArgsConstructor;
@@ -37,9 +38,11 @@ public class ProjectController {
     @GetMapping("/epic/search")
     public ResponseEntity<ProjectResponse> search(
             @RequestParam List<String> epicIds,
+            @RequestParam(defaultValue = "RESOLVED_ISSUE") ProjectSearchType type,
             @RequestParam String fromDate,
             @RequestParam String toDate) {
         return ResponseEntity.ok(projectService.getProjectStatisticV2(getEpicIds(epicIds),
+                                                                      type,
                                                                       DatetimeUtils.parse(fromDate),
                                                                       DatetimeUtils.parse(toDate)));
     }

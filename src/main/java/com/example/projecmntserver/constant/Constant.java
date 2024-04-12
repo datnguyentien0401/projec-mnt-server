@@ -12,4 +12,5 @@ public final class Constant {
     public static final Integer TIME_MD = 8 * 3600;
     public static final Integer MAX_RESULT_SEARCH_JIRA = 100;
     public static final String JIRA_ACCOUNT_TYPE_APP = "app";
+    public static final String EMPTY_STRING = "";
 }

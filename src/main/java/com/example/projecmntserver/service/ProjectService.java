@@ -14,16 +14,22 @@ import java.util.Set;
 
 import org.springframework.stereotype.Service;
 import org.springframework.util.CollectionUtils;
+import org.springframework.util.StringUtils;
 
 import com.example.projecmntserver.constant.Constant;
 import com.example.projecmntserver.dto.jira.EpicDto;
+import com.example.projecmntserver.dto.jira.FieldDto;
 import com.example.projecmntserver.dto.jira.IssueDto;
 import com.example.projecmntserver.dto.jira.IssueSearchResponse;
+import com.example.projecmntserver.dto.jira.IssueTypeDto;
 import com.example.projecmntserver.dto.jira.JiraProjectDto;
+import com.example.projecmntserver.dto.jira.ParentDto;
+import com.example.projecmntserver.dto.jira.ParentFieldDto;
 import com.example.projecmntserver.dto.response.EpicRemainingResponse;
 import com.example.projecmntserver.dto.response.OverallTeamResponse;
 import com.example.projecmntserver.dto.response.ProjectDto;
 import com.example.projecmntserver.dto.response.ProjectResponse;
+import com.example.projecmntserver.type.ProjectSearchType;
 import com.example.projecmntserver.util.DatetimeUtils;
 import com.example.projecmntserver.util.NumberUtils;
 
@@ -41,6 +47,7 @@ public class ProjectService {
     }
 
     public ProjectResponse getProjectStatisticV2(List<String> epicIds,
+                                                 ProjectSearchType type,
                                                  LocalDate fromDate,
                                                  LocalDate toDate) {
         final var projectResponse = new ProjectResponse();
@@ -64,7 +71,7 @@ public class ProjectService {
                         .sorted(Comparator.comparing(ProjectDto::getMonth))
                         .toList());
 
-        getProjectListPerMonthV2(epicIds, fromDate, toDate)
+        getProjectListPerMonthV2(epicIds, type, fromDate, toDate)
                 .forEach(projectByEpic -> projectResponse.getListData().addAll(projectByEpic.values()));
 
         //sort
@@ -142,65 +149,99 @@ public class ProjectService {
     }
 
     private List<Map<String, ProjectDto>> getProjectListPerMonthV2(List<String> epicIds,
+                                                                   ProjectSearchType type,
                                                                    LocalDate fromDate,
                                                                    LocalDate toDate) {
-        final List<Map<String, ProjectDto>> projectByMonthList = new ArrayList<>();
         final List<EpicDto> allEpics = getAllEpics(epicIds, new ArrayList<>(), true);
 
-        for (var epic : allEpics) {
-            final String jql = String.format("AND 'epic link' IN ( %s )", String.join(", ", epic.getIds()));
-            final var response = jiraApiService.searchIssue(
-                    String.format(" type NOT IN ( %s ) AND updated >= %s AND updated <= %s ",
-                                  String.join(", ", IGNORE_SEARCH_ISSUE), fromDate, toDate) + jql);
-            if (Objects.isNull(response)) {
+        final Map<String, Map<String, ProjectDto>> projectByEpic = new HashMap<>();
+        final Map<String, EpicDto> epicMap = new HashMap<>();
+        allEpics.forEach(epicDto -> {
+            projectByEpic.put(epicDto.getProjectName(), new HashMap<>());
+            epicMap.put(epicDto.getProjectName(), epicDto);
+        });
+
+        final String jql = String.format("AND 'epic link' IN ( %s )", String.join(", ", epicIds));
+        final var response = jiraApiService.searchIssue(
+                String.format(" type NOT IN ( %s ) AND updated >= %s AND updated <= %s ",
+                              String.join(", ", IGNORE_SEARCH_ISSUE), fromDate, toDate) + jql);
+
+        if (Objects.isNull(response)) {
+            return new ArrayList<>();
+        }
+
+        for (var issue : response.getIssues()) {
+            final var fields = issue.getFields();
+
+            final String projectName = getProjectName(fields);
+            if (!StringUtils.hasText(projectName)) {
                 continue;
             }
 
-            final Map<String, ProjectDto> projectByMonth = new HashMap<>();
-
-            for (var issue : response.getIssues()) {
-                final var fields = issue.getFields();
-
-                final LocalDate updatedDate = DatetimeUtils.parseDatetime(fields.getUpdatedAt()).toLocalDate();
-                final String month = DatetimeUtils.toMonth(updatedDate);
-
-                var project = new ProjectDto();
-                if (projectByMonth.containsKey(month)) {
-                    project = projectByMonth.get(month);
-                }
-
-                project.setMonth(month);
-                project.setEpicIds(epic.getIds());
-                project.setEpicName(epic.getName());
-
-                if (Objects.nonNull(fields.getTimeSpent())) {
-                    project.setTotalTimeSpent(
-                            project.getTotalTimeSpent() + fields.getTimeSpent());
-                }
-
-                if (DatetimeUtils.countMonth(updatedDate, toDate) <= 3) {
-                    project.setForColumnChart(true);
-                    final var status = fields.getStatus();
-                    if (status.getStatusCategory().getKey().isNew()) {
-                        project.setTotalOpenIssue(project.getTotalOpenIssue() + 1);
-                    } else if (status.getStatusCategory().getKey().isIndeterminate()) {
-                        project.setTotalInProgressIssue(
-                                project.getTotalInProgressIssue() + 1);
-                    }
-                }
-
-                projectByMonth.put(month, project);
+            Map<String, ProjectDto> projectByMonth = new HashMap<>();
+            if (projectByEpic.containsKey(projectName)) {
+                projectByMonth = projectByEpic.get(projectName);
             }
-            getResolvedIssueDataPerMonthV2(projectByMonth, jql, fromDate, toDate);
 
-            projectByMonthList.add(projectByMonth);
+            final LocalDate updatedDate = DatetimeUtils.parseDatetime(fields.getUpdatedAt()).toLocalDate();
+            final String month = DatetimeUtils.toMonth(updatedDate);
+
+            var project = new ProjectDto();
+            if (projectByMonth.containsKey(month)) {
+                project = projectByMonth.get(month);
+            } else {
+                project.setMonth(month);
+                project.setEpicIds(epicMap.get(projectName).getIds());
+                project.setEpicName(projectName);
+            }
+
+            if ((type == ProjectSearchType.TIME_SPENT_MM || type == ProjectSearchType.TIME_SPENT_MD)
+                && Objects.nonNull(fields.getTimeSpent())) {
+                project.setTotalTimeSpent(
+                        project.getTotalTimeSpent() + fields.getTimeSpent());
+            }
+
+            if (DatetimeUtils.countMonth(updatedDate, toDate) <= 3) {
+                project.setForColumnChart(true);
+                final var status = fields.getStatus();
+                if (status.getStatusCategory().getKey().isNew()) {
+                    project.setTotalOpenIssue(project.getTotalOpenIssue() + 1);
+                } else if (status.getStatusCategory().getKey().isIndeterminate()) {
+                    project.setTotalInProgressIssue(
+                            project.getTotalInProgressIssue() + 1);
+                }
+            }
+
+            projectByMonth.put(month, project);
+            projectByEpic.put(projectName, projectByMonth);
         }
 
-        return projectByMonthList;
+        if (type == ProjectSearchType.RESOLVED_ISSUE || type == ProjectSearchType.STORY_POINT) {
+            getResolvedIssueDataPerMonthV2(projectByEpic, epicMap, type, jql, fromDate, toDate);
+        }
+
+        return new ArrayList<>(projectByEpic.values());
     }
 
-    private void getResolvedIssueDataPerMonthV2(Map<String, ProjectDto> projectByMonth, String jql,
-                                              LocalDate fromDate, LocalDate toDate) {
+    private static String getProjectName(FieldDto fields) {
+        final ParentDto parent = fields.getParent();
+        if (Objects.isNull(parent)) {
+            return Constant.EMPTY_STRING;
+        }
+        final ParentFieldDto parentFields = parent.getFields();
+        if (Objects.isNull(parentFields)) {
+            return Constant.EMPTY_STRING;
+        }
+        final IssueTypeDto parentType = parentFields.getIssueType();
+        if (Objects.nonNull(parentType) && "Epic".equals(parentType.getName())) {
+            return getEpicPrefix(parentFields.getSummary());
+        }
+        return Constant.EMPTY_STRING;
+    }
+
+    private void getResolvedIssueDataPerMonthV2(Map<String, Map<String, ProjectDto>> projectByEpic,
+                                                Map<String, EpicDto> epicMap, ProjectSearchType type,
+                                                String jql, LocalDate fromDate, LocalDate toDate) {
         final var response = jiraApiService.searchIssue(
                 String.format("type NOT IN ( %s ) AND resolved >= %s AND resolved <= %s ",
                               String.join(", ", IGNORE_SEARCH_ISSUE), fromDate, toDate) + jql);
@@ -209,19 +250,37 @@ public class ProjectService {
             for (var issue : issues) {
                 final var fields = issue.getFields();
 
+                final String projectName = getProjectName(fields);
+                if (!StringUtils.hasText(projectName)) {
+                    continue;
+                }
+
+                Map<String, ProjectDto> projectByMonth = new HashMap<>();
+                if (projectByEpic.containsKey(projectName)) {
+                    projectByMonth = projectByEpic.get(projectName);
+                }
+
                 final String month = DatetimeUtils.toMonth(
                         DatetimeUtils.parseDatetime(fields.getResolvedAt()).toLocalDate());
 
+                var project = new ProjectDto();
                 if (projectByMonth.containsKey(month)) {
-                    final var project = projectByMonth.get(month);
-                    if (Objects.nonNull(fields.getStoryPoint())) {
-                        project.setTotalStoryPoint(
-                                project.getTotalStoryPoint() + fields.getStoryPoint());
-                    }
-                    project.setTotalResolvedIssue(project.getTotalResolvedIssue() + 1);
-
-                    projectByMonth.put(month, project);
+                    project = projectByMonth.get(month);
+                } else {
+                    project.setMonth(month);
+                    project.setEpicIds(epicMap.get(projectName).getIds());
+                    project.setEpicName(projectName);
                 }
+
+                if (type == ProjectSearchType.RESOLVED_ISSUE) {
+                    project.setTotalResolvedIssue(project.getTotalResolvedIssue() + 1);
+                } else if (Objects.nonNull(fields.getStoryPoint())) {
+                    project.setTotalStoryPoint(
+                            project.getTotalStoryPoint() + fields.getStoryPoint());
+                }
+
+                projectByMonth.put(month, project);
+                projectByEpic.put(projectName, projectByMonth);
             }
         }
     }
@@ -258,7 +317,7 @@ public class ProjectService {
     }
 
     private static String getEpicPrefix(String epicName) {
-        return epicName.split("-")[0];
+        return StringUtils.hasText(epicName) ? epicName.split("-")[0] : Constant.EMPTY_STRING;
     }
 
     public List<EpicRemainingResponse> getEpicRemaining(List<String> epicIds) {
