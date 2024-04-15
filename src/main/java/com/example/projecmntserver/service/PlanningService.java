@@ -55,6 +55,7 @@ public class PlanningService {
         planning.setAnnualLeaveData(annualLeaveData);
         planning.setFromDate(planningDto.getFromDate());
         planning.setToDate(planningDto.getToDate());
+        planning.setName(planningDto.getName());
     }
 
     public List<PlanningResponse> getAll() throws JsonProcessingException {
