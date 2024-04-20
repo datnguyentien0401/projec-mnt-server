@@ -111,8 +111,8 @@ public class TeamService {
         }
         result.setResolvedIssueData(addMonthHasNoDataAndRoundData(resolvedIssueData, fromDate, toDate));
 
-        final Map<String, Object> resolvedIssueChartDataFormatted = new HashMap<>();
         resolvedIssueChartData.forEach((chartDataKey, map) -> {
+            final Map<String, Object> resolvedIssueChartDataFormatted = new HashMap<>();
             resolvedIssueChartDataFormatted.put("name", member.get(chartDataKey));
             map.forEach((key, value) -> {
                 resolvedIssueChartDataFormatted.put(DatetimeUtils.toMonth(key, null), value);
