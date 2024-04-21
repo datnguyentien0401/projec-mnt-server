@@ -306,7 +306,7 @@ public class ProjectService {
                 }
                 final EpicDto epicDto = epicGroups.get(epicName);
                 epicDto.getIds().add(epic.getId());
-                epicDto.setName(epicName);
+                epicDto.setName(String.format("[%s] %s", epic.getKey(), epicName));
                 epicDto.setDueDate(epic.getFields().getDueDate());
                 epicDto.setStatus(epic.getFields().getStatus().getName());
                 epicGroups.put(epicName, epicDto);
