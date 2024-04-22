@@ -20,6 +20,7 @@ import com.example.projecmntserver.domain.Team;
 import com.example.projecmntserver.dto.mapper.TeamMapper;
 import com.example.projecmntserver.dto.request.TeamDto;
 import com.example.projecmntserver.dto.response.OverallTeamResponse;
+import com.example.projecmntserver.dto.response.TeamResponse;
 import com.example.projecmntserver.dto.response.TeamViewResponse;
 import com.example.projecmntserver.repository.MemberRepository;
 import com.example.projecmntserver.repository.TeamRepository;
@@ -44,8 +45,8 @@ public class TeamService {
         return teamRepository.save(team);
     }
 
-    public List<Team> findAll() {
-        return teamRepository.findAll();
+    public List<TeamResponse> findAll() {
+        return teamRepository.findAllWithNumberOfMembers();
     }
 
     @Transactional

@@ -35,7 +35,7 @@ public class TeamController {
 
     @GetMapping
     public ResponseEntity<List<TeamResponse>> getAll() {
-        return ResponseEntity.ok(teamMapper.toResponse(teamService.findAll()));
+        return ResponseEntity.ok(teamService.findAll());
     }
 
     @PostMapping
