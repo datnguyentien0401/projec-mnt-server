@@ -317,7 +317,7 @@ public class ProjectService {
     }
 
     private static String getEpicPrefix(String epicName) {
-        return StringUtils.hasText(epicName) ? epicName.split("-")[0] : Constant.EMPTY_STRING;
+        return StringUtils.hasText(epicName) ? epicName.split("_")[0] : Constant.EMPTY_STRING;
     }
 
     public List<EpicRemainingResponse> getEpicRemaining(List<String> epicIds) {
