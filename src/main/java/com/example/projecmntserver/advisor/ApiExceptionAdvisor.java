@@ -1,4 +1,4 @@
-package com.example.projecmntserver.Advisor;
+package com.example.projecmntserver.advisor;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;

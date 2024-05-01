@@ -115,9 +115,7 @@ public class TeamService {
         resolvedIssueChartData.forEach((chartDataKey, map) -> {
             final Map<String, Object> resolvedIssueChartDataFormatted = new HashMap<>();
             resolvedIssueChartDataFormatted.put("name", member.get(chartDataKey));
-            map.forEach((key, value) -> {
-                resolvedIssueChartDataFormatted.put(DatetimeUtils.toMonth(key, null), value);
-            });
+            map.forEach((key, value) -> resolvedIssueChartDataFormatted.put(DatetimeUtils.toMonth(key, null), value));
             result.getResolvedIssueChartData().add(resolvedIssueChartDataFormatted);
         });
     }

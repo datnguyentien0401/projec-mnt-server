@@ -16,13 +16,13 @@ public class LoggingInterceptor implements ClientHttpRequestInterceptor {
     @Override
     public ClientHttpResponse intercept(HttpRequest request, byte[] body,
                                         ClientHttpRequestExecution execution) throws IOException {
-        logRequestDetails(request, body);
+        logRequestDetails(request);
         final ClientHttpResponse response = execution.execute(request, body);
         logResponseDetails(response);
         return response;
     }
 
-    private static void logRequestDetails(HttpRequest request, byte[] body) {
+    private static void logRequestDetails(HttpRequest request) {
         log.info("JIRA Request method: " + request.getMethod());
         log.info("JIRA Request URI: " + request.getURI().getPath());
         log.info("JIRA Request headers: " + request.getHeaders());

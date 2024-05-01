@@ -157,8 +157,8 @@ public class ProjectService {
         final Map<String, Map<String, ProjectDto>> projectByEpic = new HashMap<>();
         final Map<String, EpicDto> epicMap = new HashMap<>();
         allEpics.forEach(epicDto -> {
-            projectByEpic.put(epicDto.getProjectName(), new HashMap<>());
-            epicMap.put(epicDto.getProjectName(), epicDto);
+            projectByEpic.put(epicDto.getName(), new HashMap<>());
+            epicMap.put(epicDto.getName(), epicDto);
         });
 
         final String jql = String.format("AND 'epic link' IN ( %s )", String.join(", ", epicIds));
@@ -306,7 +306,8 @@ public class ProjectService {
                 }
                 final EpicDto epicDto = epicGroups.get(epicName);
                 epicDto.getIds().add(epic.getId());
-                epicDto.setName(String.format("[%s] %s", epic.getKey(), epicName));
+                epicDto.setName(epicName);
+                epicDto.setKey(epic.getKey());
                 epicDto.setDueDate(epic.getFields().getDueDate());
                 epicDto.setStatus(epic.getFields().getStatus().getName());
                 epicGroups.put(epicName, epicDto);
@@ -366,11 +367,11 @@ public class ProjectService {
     private void getTeamOverallResolvedIssue(OverallTeamResponse result,
                                              LocalDate fromDate, LocalDate toDate,
                                              List<String> jiraMemberIds) {
-        final var IssueSearchRes = getIssuesByAssignee(fromDate, toDate, jiraMemberIds, "resolved");
+        final var issueSearchRes = getIssuesByAssignee(fromDate, toDate, jiraMemberIds, "resolved");
 
-        if (Objects.nonNull(IssueSearchRes)) {
+        if (Objects.nonNull(issueSearchRes)) {
             final long monthCount = DatetimeUtils.countMonth(fromDate, toDate);
-            final var totalResolvedIssue = IssueSearchRes.getTotal();
+            final var totalResolvedIssue = issueSearchRes.getTotal();
             result.setTotalResolvedIssue(totalResolvedIssue);
             result.setAvgResolvedIssue(
                     NumberUtils.round((double) totalResolvedIssue / (monthCount * jiraMemberIds.size())));

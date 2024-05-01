@@ -14,10 +14,11 @@ import lombok.NoArgsConstructor;
 public class EpicDto {
     private List<String> ids = new ArrayList<>();
     private String name;
+    private String key;
     private LocalDate dueDate;
     private String status;
     public String getProjectName() {
-        return name;
+        return String.format("[%s] %s", key, name);
     }
 
     public String getProjectId() {

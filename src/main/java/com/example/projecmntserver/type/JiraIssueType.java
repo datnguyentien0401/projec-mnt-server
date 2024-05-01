@@ -1,6 +1,5 @@
 package com.example.projecmntserver.type;
 
-import java.util.Arrays;
 import java.util.List;
 
 public enum JiraIssueType {
@@ -9,5 +8,5 @@ public enum JiraIssueType {
     STORY,
     ;
 
-    public static final List<String> IGNORE_SEARCH_ISSUE = Arrays.asList(INITIATIVE.name(), EPIC.name(), STORY.name());
+    public static final List<String> IGNORE_SEARCH_ISSUE = List.of(INITIATIVE.name(), EPIC.name(), STORY.name());
 }

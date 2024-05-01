@@ -52,7 +52,7 @@ public class PlanningController {
     }
 
     @DeleteMapping("/{id}")
-    public ResponseEntity<Long> delete(@PathVariable("id") Long id) throws JsonProcessingException {
+    public ResponseEntity<Long> delete(@PathVariable("id") Long id) {
         planningService.delete(id);
         return ResponseEntity.noContent().build();
     }

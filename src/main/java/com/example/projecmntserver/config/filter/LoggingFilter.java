@@ -103,15 +103,15 @@ public class LoggingFilter extends OncePerRequestFilter {
     }
 
     private static ContentCachingRequestWrapper wrap(HttpServletRequest request) {
-        if (request instanceof ContentCachingRequestWrapper) {
-            return (ContentCachingRequestWrapper) request;
+        if (request instanceof ContentCachingRequestWrapper contentCachingRequestWrapper) {
+            return contentCachingRequestWrapper;
         }
         return new ContentCachingRequestWrapper(request);
     }
 
     private static ContentCachingResponseWrapper wrap(HttpServletResponse response) {
-        if (response instanceof ContentCachingResponseWrapper) {
-            return (ContentCachingResponseWrapper) response;
+        if (response instanceof ContentCachingResponseWrapper contentCachingResponseWrapper) {
+            return contentCachingResponseWrapper;
         }
         return new ContentCachingResponseWrapper(response);
     }
