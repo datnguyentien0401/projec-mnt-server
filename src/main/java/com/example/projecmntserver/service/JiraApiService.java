@@ -47,18 +47,22 @@ public class JiraApiService {
     public IssueSearchResponse searchIssue(String jql) {
         PageRequest page = PageRequest.ofSize(MAX_RESULT_SEARCH_JIRA);
         final IssueSearchResponse response = searchIssueWithPage(jql, "", page);
-        while (Objects.nonNull(response) && response.getTotal() > page.getPageSize() * (page.getPageNumber() + 1)) {
-            page = PageRequest.of(page.getPageNumber() + 1, MAX_RESULT_SEARCH_JIRA);
-            final var nextPageResponse = searchIssueWithPage(jql, "", page);
-            if (Objects.isNull(nextPageResponse)) {
-                break;
+        if (Objects.nonNull(response)) {
+            final Integer totalData = response.getTotal();
+            while (totalData > page.getPageSize() * (page.getPageNumber() + 1)) {
+                page = PageRequest.of(page.getPageNumber() + 1, MAX_RESULT_SEARCH_JIRA);
+                final var nextPageResponse = searchIssueWithPage(jql, "", page);
+                if (Objects.isNull(nextPageResponse)) {
+                    break;
+                }
+                response.getIssues().addAll(nextPageResponse.getIssues());
             }
-            response.getIssues().addAll(nextPageResponse.getIssues());
         }
         return response;
     }
 
     public IssueSearchResponse searchIssueWithPage(String jql, String fields, PageRequest page) {
+        final int pageSize = page.getPageSize();
         final StringBuilder urlBuilder = new StringBuilder(jiraBaseUrl + JiraPathConstant.SEARCH);
         urlBuilder.append('?')
                   .append(JQL).append('=')
@@ -68,10 +72,10 @@ public class JiraApiService {
                   .append(fields)
                   .append('&').append(MAX_RESULTS)
                   .append('=')
-                  .append(page.getPageSize())
+                  .append(pageSize)
                   .append('&').append(START_AT)
                   .append('=')
-                  .append(page.getPageNumber());
+                  .append(page.getPageNumber() * pageSize);
         final var res = restTemplate.exchange(urlBuilder.toString(), HttpMethod.GET, httpEntity,
                                               IssueSearchResponse.class);
         if (res.getStatusCode().is2xxSuccessful()) {
