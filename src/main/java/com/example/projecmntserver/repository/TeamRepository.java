@@ -15,6 +15,6 @@ public interface TeamRepository extends JpaRepository<Team, Long> {
     Optional<Team> findByName(String name);
 
     @Query(" select new com.example.projecmntserver.dto.response.TeamResponse( t.id, t.name, count(m), t.createdAt, t.updatedAt) "
-           + " from Team t join Member m on t.id = m.team.id group by  t.id")
+           + " from Team t left join Member m on t.id = m.team.id group by  t.id")
     List<TeamResponse> findAllWithNumberOfMembers();
 }
