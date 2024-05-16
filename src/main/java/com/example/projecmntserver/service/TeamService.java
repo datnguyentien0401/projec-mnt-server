@@ -1,22 +1,11 @@
 package com.example.projecmntserver.service;
 
-import java.time.LocalDate;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Objects;
-import java.util.Set;
-import java.util.stream.Collectors;
-
-import javax.transaction.Transactional;
-
-import org.springframework.stereotype.Service;
-import org.springframework.util.CollectionUtils;
-
 import com.example.projecmntserver.constant.Constant;
 import com.example.projecmntserver.domain.Member;
 import com.example.projecmntserver.domain.Team;
+import com.example.projecmntserver.dto.jira.IssueDto;
+import com.example.projecmntserver.dto.jira.IssueSearchResponse;
+import com.example.projecmntserver.dto.jira.WorkLogDto;
 import com.example.projecmntserver.dto.mapper.TeamMapper;
 import com.example.projecmntserver.dto.request.TeamDto;
 import com.example.projecmntserver.dto.response.OverallTeamResponse;
@@ -26,9 +15,20 @@ import com.example.projecmntserver.repository.MemberRepository;
 import com.example.projecmntserver.repository.TeamRepository;
 import com.example.projecmntserver.util.DatetimeUtils;
 import com.example.projecmntserver.util.NumberUtils;
-
+import java.time.LocalDate;
+import java.util.ArrayList;
+import java.util.Date;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Set;
+import java.util.stream.Collectors;
+import javax.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.stereotype.Service;
+import org.springframework.util.CollectionUtils;
 
 @Service
 @RequiredArgsConstructor
@@ -80,37 +80,50 @@ public class TeamService {
         final Map<String, String> memberByJiraId =
                 members.stream().collect(Collectors.toMap(Member::getJiraMemberId, Member::getName));
 
-        setResolvedIssueData(result, fromDate, toDate, memberByJiraId);
-        setTimeSpentAndStoryPointData(result, fromDate, toDate, memberByJiraId);
+        final var teamViewIssues = projectService.getTeamViewIssues(fromDate, toDate,
+            new ArrayList<>(memberByJiraId.keySet()));
+
+        setResolvedIssueAndStoryPointData(result, fromDate, toDate, memberByJiraId, teamViewIssues);
+        setTimeSpentData(result, fromDate, toDate, teamViewIssues);
 
         return result;
     }
 
-    private void setResolvedIssueData(TeamViewResponse result,
+    private void setResolvedIssueAndStoryPointData(TeamViewResponse result,
                                       LocalDate fromDate, LocalDate toDate,
-                                      Map<String, String> member) {
-        final var ResolvedIssueSearchRes = projectService.getIssuesByAssignee(fromDate, toDate,
-                                                                              new ArrayList<>(member.keySet()),
-                                                                              "resolved");
-
+                                      Map<String, String> member, IssueSearchResponse teamViewIssues) {
         final Map<Integer, Map<String, Object>> resolvedIssueData = new HashMap<>();
         final Map<String, Map<Integer, Integer>> resolvedIssueChartData = new HashMap<>();
+        final Map<Integer, Map<String, Object>> storyPointData = new HashMap<>();
 
-        if(Objects.nonNull(ResolvedIssueSearchRes)) {
-            final var issues = ResolvedIssueSearchRes.getIssues();
-            for (var issue : issues) {
+        if(Objects.nonNull(teamViewIssues)) {
+            final var issues = teamViewIssues.getIssues();
+            issues.stream().filter(
+                issue -> {
+                    String resolvedAt = issue.getFields().getResolvedAt();
+                    if (resolvedAt == null) {
+                        return false;
+                    }
+                    LocalDate resolvedDate = DatetimeUtils.parse(resolvedAt, Constant.DATE_TIME_PATTERN);
+                    return resolvedDate.isAfter(fromDate) && resolvedDate.isBefore(toDate);
+                }
+            ).forEach(issue -> {
                 final var fields = issue.getFields();
                 final var assignee = fields.getAssignee();
                 if (Objects.isNull(assignee)) {
-                    continue;
+                    return;
                 }
                 final String accountId = assignee.getAccountId();
                 final int month = DatetimeUtils.parseDatetime(fields.getResolvedAt(), null).getMonthValue();
-                setData(resolvedIssueData, month, accountId, Integer.valueOf(1));
-                setChartData(resolvedIssueChartData, accountId, month, Integer.valueOf(1));
-            }
+                setData(resolvedIssueData, month, accountId, 1);
+                setChartData(resolvedIssueChartData, accountId, month, 1);
+                if (Objects.nonNull(fields.getStoryPoint())) {
+                    setData(storyPointData, month, assignee.getAccountId(), fields.getStoryPoint());
+                }
+            });
         }
         result.setResolvedIssueData(addMonthHasNoDataAndRoundData(resolvedIssueData, fromDate, toDate));
+        result.setStoryPointData(addMonthHasNoDataAndRoundData(storyPointData, fromDate, toDate));
 
         resolvedIssueChartData.forEach((chartDataKey, map) -> {
             final Map<String, Object> resolvedIssueChartDataFormatted = new HashMap<>();
@@ -120,37 +133,41 @@ public class TeamService {
         });
     }
 
-    private void setTimeSpentAndStoryPointData(TeamViewResponse result,
-                                               LocalDate fromDate, LocalDate toDate,
-                                               Map<String, String> member) {
-        final var IssueSearchRes = projectService.getIssuesByAssignee(fromDate, toDate,
-                                                                      new ArrayList<>(member.keySet()),
-                                                                      "updated");
-
+    private void setTimeSpentData(TeamViewResponse result, LocalDate fromDate, LocalDate toDate,
+        IssueSearchResponse teamViewIssues) {
         final Map<Integer, Map<String, Object>> timeSpentData = new HashMap<>();
-        final Map<Integer, Map<String, Object>> storyPointData = new HashMap<>();
 
-        if(Objects.nonNull(IssueSearchRes)) {
-            final var issues = IssueSearchRes.getIssues();
+        if (Objects.nonNull(teamViewIssues)) {
+            final var issues = teamViewIssues.getIssues();
             for (var issue : issues) {
-                final var fields = issue.getFields();
-                final var assignee = fields.getAssignee();
-                if (Objects.isNull(assignee)) {
-                    continue;
-                }
-                final String accountId = assignee.getAccountId();
-                final int month = DatetimeUtils.parseDatetime(fields.getUpdatedAt(), null).getMonthValue();
-                if (Objects.nonNull(fields.getTimeSpent())) {
-                    setData(timeSpentData, month, accountId, (double) fields.getTimeSpent() / Constant.TIME_MM);
-                }
-                if (Objects.nonNull(fields.getStoryPoint())) {
-                    setData(storyPointData, month, accountId, fields.getStoryPoint());
-                }
+                setTimeSpentData(fromDate, toDate, issue, timeSpentData);
             }
         }
-
         result.setTimeSpentData(addMonthHasNoDataAndRoundData(timeSpentData, fromDate, toDate));
-        result.setStoryPointData(addMonthHasNoDataAndRoundData(storyPointData, fromDate, toDate));
+    }
+
+    private void setTimeSpentData(LocalDate fromDate, LocalDate toDate, IssueDto issue,
+        Map<Integer, Map<String, Object>> timeSpentData) {
+        final var fields = issue.getFields();
+        final var assignee = fields.getAssignee();
+        if (Objects.isNull(assignee)) {
+            return;
+        }
+        WorkLogDto worklog = fields.getWorklog();
+        if (worklog != null) {
+            List<WorkLogDto.Log> workLogs = worklog.getWorklogs();
+            if (workLogs != null) {
+                workLogs.forEach(wl -> {
+                    String accountId = wl.getAuthor().getAccountId();
+                    Date started = wl.getStarted();
+                    LocalDate startedLocalDate = DatetimeUtils.dateToLocalDate(started);
+                    if (DatetimeUtils.isLocalDateBetween(startedLocalDate, fromDate, toDate)) {
+                        setData(timeSpentData, DatetimeUtils.getMonth(started), accountId,
+                            (double) wl.getTimeSpentSeconds() / Constant.TIME_MD);
+                    }
+                });
+            }
+        }
     }
 
     private static List<Map<String, Object>> addMonthHasNoDataAndRoundData(Map<Integer, Map<String, Object>> dataByMonth,
