@@ -2,20 +2,6 @@ package com.example.projecmntserver.service;
 
 import static com.example.projecmntserver.type.JiraIssueType.IGNORE_SEARCH_ISSUE;
 
-import java.time.LocalDate;
-import java.util.ArrayList;
-import java.util.Comparator;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Objects;
-import java.util.Set;
-
-import org.springframework.stereotype.Service;
-import org.springframework.util.CollectionUtils;
-import org.springframework.util.StringUtils;
-
 import com.example.projecmntserver.constant.Constant;
 import com.example.projecmntserver.dto.jira.EpicDto;
 import com.example.projecmntserver.dto.jira.FieldDto;
@@ -32,14 +18,43 @@ import com.example.projecmntserver.dto.response.ProjectResponse;
 import com.example.projecmntserver.type.ProjectSearchType;
 import com.example.projecmntserver.util.DatetimeUtils;
 import com.example.projecmntserver.util.NumberUtils;
-
+import java.time.LocalDate;
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Set;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.stereotype.Service;
+import org.springframework.util.CollectionUtils;
+import org.springframework.util.StringUtils;
 
 @Service
 @RequiredArgsConstructor
 @Slf4j
 public class ProjectService {
+
+    private static final String[] ISSUE_FIELDS = {
+        "project",
+        "assignee",
+        "status",
+        "summary",
+        "customfield_10308",
+        "timeestimate",
+        "timespent",
+        "duedate",
+        "updated",
+        "updatedAt",
+        "resolutiondate",
+        "resolvedAt",
+        "parent",
+        "worklog"
+    };
+
     private final JiraApiService jiraApiService;
 
     public List<EpicDto> getAllEpic(List<String> jiraProjectIds, boolean groupEpic) {
@@ -413,6 +428,26 @@ public class ProjectService {
             jql += String.format("AND assignee IN ( %s )", String.join(",", jiraMemberIds));
         }
         return jiraApiService.searchIssue(jql);
+    }
+
+    public IssueSearchResponse getTeamViewIssues(LocalDate fromDate, LocalDate toDate, List<String> jiraMemberIds) {
+        String jql = String.format(
+            """
+                type NOT IN (%s)
+                AND (
+                        (resolved >= %s AND resolved <= %s)
+                    OR  (created <= %s AND updated >= %s)
+                )\
+            """,
+            String.join(", ", IGNORE_SEARCH_ISSUE),
+            fromDate,
+            toDate,
+            toDate,
+            fromDate);
+        if (!CollectionUtils.isEmpty(jiraMemberIds)) {
+            jql += String.format("AND assignee IN ( %s )", String.join(",", jiraMemberIds));
+        }
+        return jiraApiService.searchIssue(jql, ISSUE_FIELDS);
     }
 
     public List<JiraProjectDto> getJiraProject(String jiraProjectName) {

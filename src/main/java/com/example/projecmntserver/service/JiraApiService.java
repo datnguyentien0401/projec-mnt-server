@@ -6,12 +6,16 @@ import static com.example.projecmntserver.constant.JiraParamConstant.FIELDS;
 import static com.example.projecmntserver.constant.JiraParamConstant.JQL;
 import static com.example.projecmntserver.constant.JiraParamConstant.MAX_RESULTS;
 import static com.example.projecmntserver.constant.JiraParamConstant.START_AT;
-
+import com.example.projecmntserver.constant.JiraPathConstant;
+import com.example.projecmntserver.dto.jira.IssueSearchResponse;
+import com.example.projecmntserver.dto.jira.JiraProjectDto;
+import com.example.projecmntserver.dto.jira.UserSearchDto;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
-
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.http.HttpEntity;
@@ -19,14 +23,6 @@ import org.springframework.http.HttpMethod;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
-
-import com.example.projecmntserver.constant.JiraPathConstant;
-import com.example.projecmntserver.dto.jira.IssueSearchResponse;
-import com.example.projecmntserver.dto.jira.JiraProjectDto;
-import com.example.projecmntserver.dto.jira.UserSearchDto;
-
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
 
 @Service
 @Slf4j
@@ -44,14 +40,15 @@ public class JiraApiService {
                                      HttpMethod.GET, httpEntity, JiraProjectDto[].class).getBody();
     }
 
-    public IssueSearchResponse searchIssue(String jql) {
+    public IssueSearchResponse searchIssue(String jql, String... fields) {
         PageRequest page = PageRequest.ofSize(MAX_RESULT_SEARCH_JIRA);
-        final IssueSearchResponse response = searchIssueWithPage(jql, "", page);
+        String joinedFields = String.join(",", fields);
+        final IssueSearchResponse response = searchIssueWithPage(jql, joinedFields, page);
         if (Objects.nonNull(response)) {
             final Integer totalData = response.getTotal();
             while (totalData > page.getPageSize() * (page.getPageNumber() + 1)) {
                 page = PageRequest.of(page.getPageNumber() + 1, MAX_RESULT_SEARCH_JIRA);
-                final var nextPageResponse = searchIssueWithPage(jql, "", page);
+                final var nextPageResponse = searchIssueWithPage(jql, joinedFields, page);
                 if (Objects.isNull(nextPageResponse)) {
                     break;
                 }
