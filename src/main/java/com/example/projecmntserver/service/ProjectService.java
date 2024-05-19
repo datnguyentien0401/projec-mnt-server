@@ -1,6 +1,21 @@
 package com.example.projecmntserver.service;
 
 import static com.example.projecmntserver.type.JiraIssueType.IGNORE_SEARCH_ISSUE;
+import static com.example.projecmntserver.type.JiraStatus.DONE_STATUS_LIST;
+
+import java.time.LocalDate;
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Set;
+
+import org.springframework.stereotype.Service;
+import org.springframework.util.CollectionUtils;
+import org.springframework.util.StringUtils;
 
 import com.example.projecmntserver.constant.Constant;
 import com.example.projecmntserver.dto.jira.EpicDto;
@@ -18,20 +33,9 @@ import com.example.projecmntserver.dto.response.ProjectResponse;
 import com.example.projecmntserver.type.ProjectSearchType;
 import com.example.projecmntserver.util.DatetimeUtils;
 import com.example.projecmntserver.util.NumberUtils;
-import java.time.LocalDate;
-import java.util.ArrayList;
-import java.util.Comparator;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Objects;
-import java.util.Set;
+
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.stereotype.Service;
-import org.springframework.util.CollectionUtils;
-import org.springframework.util.StringUtils;
 
 @Service
 @RequiredArgsConstructor
@@ -57,8 +61,8 @@ public class ProjectService {
 
     private final JiraApiService jiraApiService;
 
-    public List<EpicDto> getAllEpic(List<String> jiraProjectIds, boolean groupEpic) {
-        return getAllEpics(new ArrayList<>(), jiraProjectIds, groupEpic);
+    public List<EpicDto> getAllEpic(List<String> jiraProjectIds, boolean groupEpic, boolean resolvedEpic) {
+        return getAllEpics(new ArrayList<>(), jiraProjectIds, groupEpic, resolvedEpic);
     }
 
     public ProjectResponse getProjectStatisticV2(List<String> epicIds,
@@ -128,7 +132,23 @@ public class ProjectService {
             projectByMonth.put(month, projectDto);
         }
         getResolvedIssueSumDataPerMonthV2(projectByMonth, jql, fromDate, toDate);
-        return projectByMonth;
+        return addMonthNoData(projectByMonth, fromDate, toDate);
+    }
+
+    private static Map<String, ProjectDto> addMonthNoData(Map<String, ProjectDto> data, LocalDate fromDate,
+                                                          LocalDate toDate) {
+        final Set<String> monthExists = data.keySet();
+        while (!fromDate.isAfter(toDate)) {
+            final String monthKey = DatetimeUtils.toMonth(fromDate);
+            fromDate = fromDate.plusMonths(1);
+            if (monthExists.contains(monthKey)) {
+               continue;
+            }
+            final var value = new ProjectDto();
+            value.setMonth(monthKey);
+            data.put(monthKey, value);
+        }
+        return data;
     }
 
     private void getResolvedIssueSumDataPerMonthV2(Map<String, ProjectDto> projectByMonth, String jql,
@@ -167,7 +187,7 @@ public class ProjectService {
                                                                    ProjectSearchType type,
                                                                    LocalDate fromDate,
                                                                    LocalDate toDate) {
-        final List<EpicDto> allEpics = getAllEpics(epicIds, new ArrayList<>(), true);
+        final List<EpicDto> allEpics = getAllEpics(epicIds, new ArrayList<>(), true, false);
 
         final Map<String, Map<String, ProjectDto>> projectByEpic = new HashMap<>();
         final Map<String, EpicDto> epicMap = new HashMap<>();
@@ -234,8 +254,9 @@ public class ProjectService {
         if (type == ProjectSearchType.RESOLVED_ISSUE || type == ProjectSearchType.STORY_POINT) {
             getResolvedIssueDataPerMonthV2(projectByEpic, epicMap, type, jql, fromDate, toDate);
         }
-
-        return new ArrayList<>(projectByEpic.values());
+        final List<Map<String, ProjectDto>> values = new ArrayList<>(projectByEpic.values());
+        values.forEach(v -> addMonthNoData(v, fromDate, toDate));
+        return values;
     }
 
     private static String getProjectName(FieldDto fields) {
@@ -300,12 +321,16 @@ public class ProjectService {
         }
     }
 
-    public List<EpicDto> getAllEpics(List<String> epicIds, List<String> jiraProjectIds, boolean groupEpic) {
+    public List<EpicDto> getAllEpics(List<String> epicIds, List<String> jiraProjectIds, boolean groupEpic, boolean resolvedEpic) {
         String jql = "issuetype = 'epic' ";
         if (!CollectionUtils.isEmpty(epicIds)) {
             jql += String.format(" AND id IN (%s) ", String.join(",", epicIds));
         } else if (!CollectionUtils.isEmpty(jiraProjectIds)) {
             jql += String.format(" AND project IN (%s) ", String.join(",", jiraProjectIds));
+        }
+        if (!resolvedEpic) {
+            jql += String.format(" AND status NOT IN (%s) ",
+                                 String.join(",", DONE_STATUS_LIST));
         }
         final var response = jiraApiService.searchIssue(jql);
 
@@ -338,7 +363,7 @@ public class ProjectService {
 
     public List<EpicRemainingResponse> getEpicRemaining(List<String> epicIds) {
         final List<EpicRemainingResponse> result = new ArrayList<>();
-        final List<EpicDto> allEpics = getAllEpics(epicIds, new ArrayList<>(), false);
+        final List<EpicDto> allEpics = getAllEpics(epicIds, new ArrayList<>(), false, false);
         for (var epic : allEpics) {
             final var epicRemainingResponse = new EpicRemainingResponse();
             epicRemainingResponse.setEpicName(epic.getName());
