@@ -187,7 +187,7 @@ public class ProjectService {
                                                                    ProjectSearchType type,
                                                                    LocalDate fromDate,
                                                                    LocalDate toDate) {
-        final List<EpicDto> allEpics = getAllEpics(epicIds, new ArrayList<>(), true, false);
+        final List<EpicDto> allEpics = getAllEpics(epicIds, new ArrayList<>(), true, true);
 
         final Map<String, Map<String, ProjectDto>> projectByEpic = new HashMap<>();
         final Map<String, EpicDto> epicMap = new HashMap<>();
