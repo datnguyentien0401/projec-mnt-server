@@ -77,4 +77,12 @@ public final class DatetimeUtils {
     public static long countMonth(LocalDate fromDate, LocalDate toDate) {
         return ChronoUnit.MONTHS.between(fromDate, toDate) + 1;
     }
+
+    public static long countMonthConsideringToday(@NotNull LocalDate fromDate, @NotNull LocalDate toDate) {
+        LocalDate today = LocalDate.now();
+        if (toDate.isAfter(today)) {
+            return countMonth(fromDate, today);
+        }
+        return countMonth(fromDate, toDate);
+    }
 }

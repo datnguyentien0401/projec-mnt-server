@@ -3,9 +3,14 @@ package com.example.projecmntserver.service;
 import static com.example.projecmntserver.type.JiraIssueType.IGNORE_SEARCH_ISSUE;
 import static com.example.projecmntserver.type.JiraStatus.DONE_STATUS_LIST;
 
+import com.example.projecmntserver.domain.Member;
+import com.example.projecmntserver.domain.Team;
+import com.example.projecmntserver.dto.jira.WorkLogDto;
+import com.example.projecmntserver.util.Helper;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.Date;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -13,6 +18,8 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 
+import java.util.stream.Collectors;
+import javax.validation.constraints.NotNull;
 import org.springframework.stereotype.Service;
 import org.springframework.util.CollectionUtils;
 import org.springframework.util.StringUtils;
@@ -396,63 +403,73 @@ public class ProjectService {
         return result;
     }
 
-    public OverallTeamResponse getTeamOverall(LocalDate fromDate, LocalDate toDate,
-                                              List<String> jiraMemberIds) {
-        final OverallTeamResponse result = new OverallTeamResponse();
-        getTeamOverallResolvedIssue(result, fromDate, toDate, jiraMemberIds);
-        getTeamOverallTimeSpentAndStoryPoint(result, fromDate, toDate, jiraMemberIds);
+    public List<OverallTeamResponse> getOverall(LocalDate fromDate, LocalDate toDate, List<Team> allTeams,
+        Map<Long, @NotNull List<Member>> teamMembers) {
+        final List<OverallTeamResponse> result = new ArrayList<>();
+
+        final var jiraMemberIds = teamMembers.values().stream().flatMap(List::stream).map(Member::getJiraMemberId)
+            .distinct().toList();
+        IssueSearchResponse issueSearchResponse = getTeamViewIssues(fromDate, toDate, jiraMemberIds);
+
+        final var issuesByAssignee = issueSearchResponse.getIssues().stream()
+            .collect(Collectors.groupingBy(issueDto -> issueDto.getFields().getAssignee().getAccountId()));
+
+        for (var team : allTeams) {
+            final var members = teamMembers.get(team.getId());
+            if (members.isEmpty()) {
+                continue;
+            }
+            List<IssueDto> issues = members.stream().map(member -> issuesByAssignee.get(member.getJiraMemberId()))
+                .filter(Objects::nonNull)
+                .flatMap(List::stream).toList();
+            OverallTeamResponse teamResponse = new OverallTeamResponse();
+            teamResponse.setTeam(team.getName());
+            setTeamOverallResolvedIssueAndStoryPointData(teamResponse, issues, members, fromDate, toDate);
+            setTeamOverallTimeSpent(teamResponse, issues, members, fromDate, toDate);
+            result.add(teamResponse);
+        }
+
         return result;
     }
 
-    private void getTeamOverallResolvedIssue(OverallTeamResponse result,
-                                             LocalDate fromDate, LocalDate toDate,
-                                             List<String> jiraMemberIds) {
-        final var issueSearchRes = getIssuesByAssignee(fromDate, toDate, jiraMemberIds, "resolved");
-
-        if (Objects.nonNull(issueSearchRes)) {
-            final long monthCount = DatetimeUtils.countMonth(fromDate, toDate);
-            final var totalResolvedIssue = issueSearchRes.getTotal();
-            result.setTotalResolvedIssue(totalResolvedIssue);
-            result.setAvgResolvedIssue(
-                    NumberUtils.round((double) totalResolvedIssue / (monthCount * jiraMemberIds.size())));
+    private void setTeamOverallResolvedIssueAndStoryPointData(OverallTeamResponse teamResponse,
+        List<IssueDto> issues, List<Member> members, LocalDate fromDate, LocalDate toDate) {
+        List<IssueDto> resolvedIssues = Helper.getResolvedIssuesInRange(issues, fromDate, toDate);
+        final long monthCount = DatetimeUtils.countMonthConsideringToday(fromDate, toDate);
+        final var totalResolvedIssue = resolvedIssues.size();
+        teamResponse.setTotalResolvedIssue(totalResolvedIssue);
+        teamResponse.setAvgResolvedIssue(NumberUtils.round((double) totalResolvedIssue / (monthCount * members.size())));
+        double storyPoints = 0d;
+        for (var issue : resolvedIssues) {
+            final var fields = issue.getFields();
+            if (Objects.nonNull(fields.getStoryPoint())) {
+                storyPoints += fields.getStoryPoint();
+            }
         }
+        teamResponse.setAvgStoryPoint(NumberUtils.round(storyPoints / (monthCount * members.size())));
     }
 
-    private void getTeamOverallTimeSpentAndStoryPoint(OverallTeamResponse result,
-                                                      LocalDate fromDate, LocalDate toDate,
-                                                      List<String> jiraMemberIds) {
-        final var IssueSearchRes = getIssuesByAssignee(fromDate, toDate, jiraMemberIds, "updated");
-
+    private void setTeamOverallTimeSpent(OverallTeamResponse teamResponse,
+        List<IssueDto> issues, List<Member> members, LocalDate fromDate, LocalDate toDate) {
         double totalTimeSpent = 0.0;
-        double totalStoryPoint = 0.0;
-        final long monthCount = DatetimeUtils.countMonth(fromDate, toDate);
-
-        if (Objects.nonNull(IssueSearchRes)) {
-            final var issues = IssueSearchRes.getIssues();
-            for (var issue : issues) {
-                final var fields = issue.getFields();
-                if (Objects.nonNull(fields.getTimeSpent())) {
-                    totalTimeSpent += fields.getTimeSpent();
-                }
-                if (Objects.nonNull(fields.getStoryPoint())) {
-                    totalStoryPoint += fields.getStoryPoint();
+        final long monthCount = DatetimeUtils.countMonthConsideringToday(fromDate, toDate);
+        for (IssueDto issue : issues) {
+            final var fields = issue.getFields();
+            WorkLogDto workLog = fields.getWorklog();
+            if (workLog != null) {
+                List<WorkLogDto.Log> workLogs = workLog.getWorklogs();
+                if (workLogs != null) {
+                    for (WorkLogDto.Log wl : workLogs) {
+                        Date started = wl.getStarted();
+                        LocalDate startedLocalDate = DatetimeUtils.dateToLocalDate(started);
+                        if (DatetimeUtils.isLocalDateBetween(startedLocalDate, fromDate, toDate)) {
+                            totalTimeSpent += wl.getTimeSpentSeconds();
+                        }
+                    }
                 }
             }
         }
-        result.setAvgTimeSpent(NumberUtils.round(totalTimeSpent / Constant.TIME_MM / (monthCount * jiraMemberIds.size())));
-        result.setAvgStoryPoint(NumberUtils.round(totalStoryPoint / (monthCount * jiraMemberIds.size())));
-    }
-
-    public IssueSearchResponse getIssuesByAssignee(LocalDate fromDate, LocalDate toDate,
-                                                   List<String> jiraMemberIds, String dateFieldName) {
-        String jql = String.format("type NOT IN ( %s ) AND %s >= %s AND %s <= %s ",
-                                   String.join(", ", IGNORE_SEARCH_ISSUE),
-                                   dateFieldName, fromDate,
-                                   dateFieldName, toDate);
-        if (!CollectionUtils.isEmpty(jiraMemberIds)) {
-            jql += String.format("AND assignee IN ( %s )", String.join(",", jiraMemberIds));
-        }
-        return jiraApiService.searchIssue(jql);
+        teamResponse.setAvgTimeSpent(NumberUtils.round(totalTimeSpent / (monthCount * members.size() * Constant.TIME_MD)));
     }
 
     public IssueSearchResponse getTeamViewIssues(LocalDate fromDate, LocalDate toDate, List<String> jiraMemberIds) {
@@ -462,7 +479,7 @@ public class ProjectService {
                 AND (
                         (resolved >= %s AND resolved <= %s)
                     OR  (created <= %s AND updated >= %s)
-                )\
+                ) \
             """,
             String.join(", ", IGNORE_SEARCH_ISSUE),
             fromDate,
