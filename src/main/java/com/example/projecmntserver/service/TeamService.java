@@ -14,6 +14,7 @@ import com.example.projecmntserver.dto.response.TeamViewResponse;
 import com.example.projecmntserver.repository.MemberRepository;
 import com.example.projecmntserver.repository.TeamRepository;
 import com.example.projecmntserver.util.DatetimeUtils;
+import com.example.projecmntserver.util.Helper;
 import com.example.projecmntserver.util.NumberUtils;
 import java.time.LocalDate;
 import java.util.ArrayList;
@@ -28,7 +29,6 @@ import javax.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
-import org.springframework.util.CollectionUtils;
 
 @Service
 @RequiredArgsConstructor
@@ -56,21 +56,13 @@ public class TeamService {
     }
 
     public List<OverallTeamResponse> getOverall(LocalDate fromDate, LocalDate toDate) {
-        final List<OverallTeamResponse> result = new ArrayList<>();
         final List<Team> allTeams = teamRepository.findAll();
+        final Map<Long, List<Member>> teamMembers = new HashMap<>();
         for (var team : allTeams) {
-            final List<Member> teamMembers = memberRepository.findMembersByTeamId(team.getId());
-            final List<String> jiraMemberIds = teamMembers.stream()
-                                                          .map(Member::getJiraMemberId)
-                                                          .toList();
-            if (CollectionUtils.isEmpty(jiraMemberIds)) {
-                continue;
-            }
-            final var teamOverall = projectService.getTeamOverall(fromDate, toDate, jiraMemberIds);
-            teamOverall.setTeam(team.getName());
-            result.add(teamOverall);
+            final var members = memberRepository.findMembersByTeamId(team.getId());
+            teamMembers.put(team.getId(), members);
         }
-        return result;
+        return projectService.getOverall(fromDate, toDate, allTeams, teamMembers);
     }
 
     public TeamViewResponse getTeamView(LocalDate fromDate, LocalDate toDate, Long teamId) {
@@ -98,16 +90,7 @@ public class TeamService {
 
         if(Objects.nonNull(teamViewIssues)) {
             final var issues = teamViewIssues.getIssues();
-            issues.stream().filter(
-                issue -> {
-                    String resolvedAt = issue.getFields().getResolvedAt();
-                    if (resolvedAt == null) {
-                        return false;
-                    }
-                    LocalDate resolvedDate = DatetimeUtils.parse(resolvedAt, Constant.DATE_TIME_PATTERN);
-                    return resolvedDate.isAfter(fromDate) && resolvedDate.isBefore(toDate);
-                }
-            ).forEach(issue -> {
+            Helper.getResolvedIssuesInRange(issues, fromDate, toDate).forEach(issue -> {
                 final var fields = issue.getFields();
                 final var assignee = fields.getAssignee();
                 if (Objects.isNull(assignee)) {
