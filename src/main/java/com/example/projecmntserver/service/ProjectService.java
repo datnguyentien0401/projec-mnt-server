@@ -1,44 +1,53 @@
 package com.example.projecmntserver.service;
 
-import static com.example.projecmntserver.type.JiraIssueType.IGNORE_SEARCH_ISSUE;
+import static com.example.projecmntserver.type.JiraIssueType.IGNORE_SEARCH_ISSUE_TYPE;
 import static com.example.projecmntserver.type.JiraStatus.DONE_STATUS_LIST;
+import static com.example.projecmntserver.type.JiraStatus.IN_PROGRESS_STATUS_LIST;
+import static com.example.projecmntserver.type.JiraStatus.OPEN_STATUS_LIST;
 
-import com.example.projecmntserver.domain.Member;
-import com.example.projecmntserver.domain.Team;
-import com.example.projecmntserver.dto.jira.WorkLogDto;
-import com.example.projecmntserver.util.Helper;
 import java.time.LocalDate;
+import java.time.YearMonth;
 import java.util.ArrayList;
 import java.util.Comparator;
-import java.util.Date;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
-
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
+
 import javax.validation.constraints.NotNull;
+
 import org.springframework.stereotype.Service;
 import org.springframework.util.CollectionUtils;
 import org.springframework.util.StringUtils;
 
 import com.example.projecmntserver.constant.Constant;
+import com.example.projecmntserver.constant.JiraFieldConstant;
+import com.example.projecmntserver.domain.Member;
+import com.example.projecmntserver.domain.Team;
+import com.example.projecmntserver.dto.jira.ChangelogDto;
 import com.example.projecmntserver.dto.jira.EpicDto;
 import com.example.projecmntserver.dto.jira.FieldDto;
+import com.example.projecmntserver.dto.jira.HistoryDto;
+import com.example.projecmntserver.dto.jira.HistoryItemDto;
 import com.example.projecmntserver.dto.jira.IssueDto;
 import com.example.projecmntserver.dto.jira.IssueSearchResponse;
 import com.example.projecmntserver.dto.jira.IssueTypeDto;
 import com.example.projecmntserver.dto.jira.JiraProjectDto;
 import com.example.projecmntserver.dto.jira.ParentDto;
 import com.example.projecmntserver.dto.jira.ParentFieldDto;
+import com.example.projecmntserver.dto.jira.WorkLogDto;
 import com.example.projecmntserver.dto.response.EpicRemainingResponse;
 import com.example.projecmntserver.dto.response.OverallTeamResponse;
 import com.example.projecmntserver.dto.response.ProjectDto;
 import com.example.projecmntserver.dto.response.ProjectResponse;
 import com.example.projecmntserver.type.ProjectSearchType;
 import com.example.projecmntserver.util.DatetimeUtils;
+import com.example.projecmntserver.util.Helper;
 import com.example.projecmntserver.util.NumberUtils;
 
 import lombok.RequiredArgsConstructor;
@@ -63,7 +72,8 @@ public class ProjectService {
         "resolutiondate",
         "resolvedAt",
         "parent",
-        "worklog"
+        "worklog",
+        "created"
     };
 
     private final JiraApiService jiraApiService;
@@ -72,34 +82,29 @@ public class ProjectService {
         return getAllEpics(new ArrayList<>(), jiraProjectIds, groupEpic, resolvedEpic);
     }
 
+    private static String buildJql(List<String> epicIds) {
+        return String.format("'epic link' IN (%s) AND type NOT IN (%s)",
+                             String.join(",", epicIds),
+                             String.join(",", IGNORE_SEARCH_ISSUE_TYPE));
+    }
+
     public ProjectResponse getProjectStatisticV2(List<String> epicIds,
                                                  ProjectSearchType type,
                                                  LocalDate fromDate,
                                                  LocalDate toDate) {
         final var projectResponse = new ProjectResponse();
 
-        String jql = "";
-        if (!CollectionUtils.isEmpty(epicIds)) {
-            jql = String.format(" AND 'epic link' IN ( %s )", String.join(", ", epicIds));
-        }
-
-        final var response = jiraApiService.searchIssue(
-                String.format(" type NOT IN ( %s ) AND updated >= %s AND updated <= %s ",
-                              String.join(", ", IGNORE_SEARCH_ISSUE), fromDate, toDate) + jql);
-        if (response == null) {
-            return projectResponse;
-        }
+        final String jql = buildJql(epicIds);
 
         projectResponse.setTotalData(
                 new ArrayList<>(
-                        getProjectSumDataPerMonthV2(response.getIssues(), jql, fromDate, toDate).values())
+                        getProjectSumDataPerMonthV2(jql, fromDate, toDate).values())
                         .stream()
                         .sorted(Comparator.comparing(ProjectDto::getMonth))
                         .toList());
 
-        getProjectListPerMonthV2(epicIds, type, fromDate, toDate)
+        getProjectListPerMonthV2(jql, epicIds, type, fromDate, toDate)
                 .forEach(projectByEpic -> projectResponse.getListData().addAll(projectByEpic.values()));
-
         //sort
         projectResponse.setListData(
                 projectResponse.getListData()
@@ -110,62 +115,60 @@ public class ProjectService {
         return projectResponse;
     }
 
-    public Map<String, ProjectDto> getProjectSumDataPerMonthV2(List<IssueDto> issues,
-                                                               String jql,
+    public Map<String, ProjectDto> getProjectSumDataPerMonthV2(String jql,
                                                                LocalDate fromDate,
                                                                LocalDate toDate) {
+        final var response = jiraApiService.searchIssue(jql, ISSUE_FIELDS);
+        if (response == null) {
+            return new HashMap<>();
+        }
+        final var issues = response.getIssues();
         final Map<String, ProjectDto> projectByMonth = new HashMap<>();
         for (var issue : issues) {
             final var fields = issue.getFields();
 
-            var projectDto = new ProjectDto();
+            var tempDate = fromDate;
+            while (!tempDate.isAfter(toDate)) {
+                var projectDto = new ProjectDto();
 
-            final String month = DatetimeUtils.toMonth(
-                    DatetimeUtils.parseDatetime(fields.getUpdatedAt()).toLocalDate());
+                final String month = DatetimeUtils.toMonth(tempDate);
+                final String issueCreatedMonth = DatetimeUtils.toMonth(fields.getCreated());
 
-            if (projectByMonth.containsKey(month)) {
-                projectDto = projectByMonth.get(month);
-            } else {
-                projectDto.setMonth(month);
-            }
+                if (projectByMonth.containsKey(month)) {
+                    projectDto = projectByMonth.get(month);
+                } else {
+                    projectDto.setMonth(month);
+                }
 
-            if (Objects.nonNull(fields.getTimeSpent())) {
-                projectDto.setTotalTimeSpent(
-                        projectDto.getTotalTimeSpent() + fields.getTimeSpent());
+                if (YearMonth.parse(month).isBefore(YearMonth.parse(issueCreatedMonth))) {//neu month hien tai dang xet truoc month tao issue thi bo qua
+                    projectByMonth.put(month, projectDto);
+                    tempDate = tempDate.plusMonths(1);
+                    continue;
+                }
+
+                if (Objects.nonNull(fields.getTimeSpent())) {
+                    calculateTimeSpent(projectDto, month, fields.getWorklog());
+                }
+                if (Objects.nonNull(fields.getAssignee())) {
+                    projectDto.getAssignees().add(fields.getAssignee().getAccountId());
+                }
+                projectByMonth.put(month, projectDto);
+                tempDate = tempDate.plusMonths(1);
             }
-            if (Objects.nonNull(fields.getAssignee())) {
-                projectDto.getAssignees().add(fields.getAssignee().getAccountId());
-            }
-            projectByMonth.put(month, projectDto);
         }
         getResolvedIssueSumDataPerMonthV2(projectByMonth, jql, fromDate, toDate);
-        return addMonthNoData(projectByMonth, fromDate, toDate);
-    }
-
-    private static Map<String, ProjectDto> addMonthNoData(Map<String, ProjectDto> data, LocalDate fromDate,
-                                                          LocalDate toDate) {
-        final Set<String> monthExists = data.keySet();
-        while (!fromDate.isAfter(toDate)) {
-            final String monthKey = DatetimeUtils.toMonth(fromDate);
-            fromDate = fromDate.plusMonths(1);
-            if (monthExists.contains(monthKey)) {
-               continue;
-            }
-            final var value = new ProjectDto();
-            value.setMonth(monthKey);
-            data.put(monthKey, value);
-        }
-        return data;
+        return projectByMonth;
     }
 
     private void getResolvedIssueSumDataPerMonthV2(Map<String, ProjectDto> projectByMonth, String jql,
                                                  LocalDate fromDate, LocalDate toDate) {
         final var response = jiraApiService.searchIssue(
-                String.format("type NOT IN ( %s ) AND resolved >= %s AND resolved <= %s ",
-                              String.join(", ", IGNORE_SEARCH_ISSUE), fromDate, toDate) + jql);
+                new StringBuilder(jql)
+                        .append(String.format(" AND resolved >= %s AND resolved <= %s", fromDate, toDate))
+                        .toString(),
+                ISSUE_FIELDS);
 
         if (Objects.nonNull(response)) {
-
             final var issues = response.getIssues();
             for (var issue : issues) {
                 final var fields = issue.getFields();
@@ -190,7 +193,8 @@ public class ProjectService {
         }
     }
 
-    private List<Map<String, ProjectDto>> getProjectListPerMonthV2(List<String> epicIds,
+    private List<Map<String, ProjectDto>> getProjectListPerMonthV2(String jql,
+                                                                   List<String> epicIds,
                                                                    ProjectSearchType type,
                                                                    LocalDate fromDate,
                                                                    LocalDate toDate) {
@@ -203,10 +207,7 @@ public class ProjectService {
             epicMap.put(epicDto.getName(), epicDto);
         });
 
-        final String jql = String.format("AND 'epic link' IN ( %s )", String.join(", ", epicIds));
-        final var response = jiraApiService.searchIssue(
-                String.format(" type NOT IN ( %s ) AND updated >= %s AND updated <= %s ",
-                              String.join(", ", IGNORE_SEARCH_ISSUE), fromDate, toDate) + jql);
+        final var response = jiraApiService.searchIssueExpand(jql, "changelog", ISSUE_FIELDS);
 
         if (Objects.isNull(response)) {
             return new ArrayList<>();
@@ -225,45 +226,125 @@ public class ProjectService {
                 projectByMonth = projectByEpic.get(projectName);
             }
 
-            final LocalDate updatedDate = DatetimeUtils.parseDatetime(fields.getUpdatedAt()).toLocalDate();
-            final String month = DatetimeUtils.toMonth(updatedDate);
+            var tempDate = fromDate;
+            while (!tempDate.isAfter(toDate)) {
+                var project = new ProjectDto();
 
-            var project = new ProjectDto();
-            if (projectByMonth.containsKey(month)) {
-                project = projectByMonth.get(month);
-            } else {
-                project.setMonth(month);
-                project.setEpicIds(epicMap.get(projectName).getIds());
-                project.setEpicName(projectName);
-            }
-
-            if ((type == ProjectSearchType.TIME_SPENT_MM || type == ProjectSearchType.TIME_SPENT_MD)
-                && Objects.nonNull(fields.getTimeSpent())) {
-                project.setTotalTimeSpent(
-                        project.getTotalTimeSpent() + fields.getTimeSpent());
-            }
-
-            if (DatetimeUtils.countMonth(updatedDate, toDate) <= 3) {
-                project.setForColumnChart(true);
-                final var status = fields.getStatus();
-                if (status.getStatusCategory().getKey().isNew()) {
-                    project.setTotalOpenIssue(project.getTotalOpenIssue() + 1);
-                } else if (status.getStatusCategory().getKey().isIndeterminate()) {
-                    project.setTotalInProgressIssue(
-                            project.getTotalInProgressIssue() + 1);
+                final String month = DatetimeUtils.toMonth(tempDate);
+                if (projectByMonth.containsKey(month)) {
+                    project = projectByMonth.get(month);
+                } else {
+                    project.setMonth(month);
+                    project.setEpicIds(epicMap.get(projectName).getIds());
+                    project.setEpicName(projectName);
                 }
-            }
 
-            projectByMonth.put(month, project);
+                final String issueCreatedMonth = DatetimeUtils.toMonth(fields.getCreated());
+
+                if (YearMonth.parse(month).isBefore(YearMonth.parse(issueCreatedMonth))) {//neu month hien tai dang xet truoc month tao issue thi bo qua
+                    projectByMonth.put(month, project);
+                    tempDate = tempDate.plusMonths(1);
+                    continue;
+                }
+
+                if (DatetimeUtils.countMonth(tempDate, toDate) <= Constant.COLUMN_CHART_MONTH_DISPLAY_NUM) {
+                    handleIssueChartData(project, issue, month, fromDate, toDate);
+                }
+
+                if (type == ProjectSearchType.TIME_SPENT_MM || type == ProjectSearchType.TIME_SPENT_MD) {
+                    calculateTimeSpent(project, month, fields.getWorklog());
+                }
+                projectByMonth.put(month, project);
+                tempDate = tempDate.plusMonths(1);
+            }
             projectByEpic.put(projectName, projectByMonth);
         }
 
         if (type == ProjectSearchType.RESOLVED_ISSUE || type == ProjectSearchType.STORY_POINT) {
             getResolvedIssueDataPerMonthV2(projectByEpic, epicMap, type, jql, fromDate, toDate);
         }
-        final List<Map<String, ProjectDto>> values = new ArrayList<>(projectByEpic.values());
-        values.forEach(v -> addMonthNoData(v, fromDate, toDate));
-        return values;
+        return new ArrayList<>(projectByEpic.values());
+    }
+
+    private static void handleIssueChartData(@NotNull ProjectDto project, @NotNull IssueDto issue, @NotNull String month,
+                                             @NotNull LocalDate fromDate, @NotNull LocalDate toDate) {
+        project.setForColumnChart(true);
+        final Map<String, HistoryItemDto> statusUpdatedHistoryByMonth = getStatusUpdatedHistoryPerMonth(
+                issue.getChangelog(), fromDate, toDate); //map da sap xep theo thu tu moi den cu
+
+        if (CollectionUtils.isEmpty(statusUpdatedHistoryByMonth)) {
+            final var status = issue.getFields().getStatus();
+            calculateIssue(project, status.getName());
+        } else {
+            if (statusUpdatedHistoryByMonth.containsKey(month)) {
+                final var historyItem = statusUpdatedHistoryByMonth.get(month);
+                calculateIssue(project, historyItem.getToString());
+            } else {
+                final List<String> latestUpdatedMonths = statusUpdatedHistoryByMonth
+                        .keySet().stream()
+                        .filter(key -> YearMonth.parse(key).isBefore(YearMonth.parse(month)))
+                        .limit(1).toList(); //tim month gan nhat de lay stt trong list month da duoc sap xep
+
+                if (!CollectionUtils.isEmpty(latestUpdatedMonths)) {
+                    final String latestMonth = latestUpdatedMonths.get(0);
+                    final var historyItem = statusUpdatedHistoryByMonth.get(latestMonth);
+                    calculateIssue(project, historyItem.getToString());
+                }
+            }
+        }
+    }
+
+    private static void calculateTimeSpent(ProjectDto project, String curMonth, WorkLogDto workLogDto) {
+        if (Objects.isNull(workLogDto)) {
+            return;
+        }
+        final AtomicReference<Long> totalTimeSpent = new AtomicReference<>(project.getTotalTimeSpent());
+        final List<WorkLogDto.Log> workLogs = workLogDto.getWorklogs();
+        if (!CollectionUtils.isEmpty(workLogs)) {
+            workLogs.forEach(wl -> {
+                if (curMonth.equals(DatetimeUtils.toMonth(wl.getStarted()))) {
+                    totalTimeSpent.updateAndGet(v -> v + wl.getTimeSpentSeconds());
+                }
+            });
+        }
+        project.setTotalTimeSpent(totalTimeSpent.get());
+    }
+
+    private static void calculateIssue(ProjectDto project, String status) {
+        if (OPEN_STATUS_LIST.contains(status.toLowerCase())) {
+            project.setTotalOpenIssue(project.getTotalOpenIssue() + 1);
+        } else if (IN_PROGRESS_STATUS_LIST.contains(status.toLowerCase())) {
+            project.setTotalInProgressIssue(project.getTotalInProgressIssue() + 1);
+        }
+    }
+
+    private static Map<String, HistoryItemDto> getStatusUpdatedHistoryPerMonth(ChangelogDto changelog,
+                                                                               LocalDate fromDate,
+                                                                               LocalDate toDate) {
+        if (Objects.isNull(changelog)) {
+            return new HashMap<>();
+        }
+        List<HistoryDto> histories = changelog.getHistories();
+
+        histories = histories.stream().filter(historyDto -> {
+            final LocalDate historyUpdatedDate = DatetimeUtils.dateToLocalDate(historyDto.getCreated());
+            return !fromDate.isAfter(historyUpdatedDate) && !toDate.isBefore(historyUpdatedDate);
+        }).peek(history -> {
+            final List<HistoryItemDto> updateStatusItems = history.getItems().stream()
+                                                                  .filter(i -> JiraFieldConstant.STATUS.equals(i.getField()))
+                                                                  .collect(Collectors.toList());
+            history.setItems(updateStatusItems);
+        }).collect(Collectors.toList());
+
+        final Map<String, HistoryItemDto> statusUpdatedHistoryByMonth = new LinkedHashMap<>(); //map chua history update status theo tung thang
+        for (var history: histories) {
+            final String updatedMonth = DatetimeUtils.toMonth(history.getCreated());
+            if (statusUpdatedHistoryByMonth.containsKey(updatedMonth) || CollectionUtils.isEmpty(history.getItems())) {
+                continue; //bo qua vi chi can lay update history moi nhat cua month
+            }
+            statusUpdatedHistoryByMonth.put(updatedMonth, history.getItems().get(0));
+        }
+        return statusUpdatedHistoryByMonth;
     }
 
     private static String getProjectName(FieldDto fields) {
@@ -286,8 +367,11 @@ public class ProjectService {
                                                 Map<String, EpicDto> epicMap, ProjectSearchType type,
                                                 String jql, LocalDate fromDate, LocalDate toDate) {
         final var response = jiraApiService.searchIssue(
-                String.format("type NOT IN ( %s ) AND resolved >= %s AND resolved <= %s ",
-                              String.join(", ", IGNORE_SEARCH_ISSUE), fromDate, toDate) + jql);
+                new StringBuilder(jql)
+                        .append(String.format(" AND resolved >= %s AND resolved <= %s", fromDate, toDate))
+                        .toString(),
+                ISSUE_FIELDS);
+
         if (Objects.nonNull(response)) {
             final var issues = response.getIssues();
             for (var issue : issues) {
@@ -378,10 +462,7 @@ public class ProjectService {
             epicRemainingResponse.setDueDate(epic.getDueDate());
             epicRemainingResponse.setStatus(epic.getStatus());
 
-            final var response = jiraApiService.searchIssue(
-                    String.format("type NOT IN ( %s ) AND 'epic link' IN ( %s ) ",
-                                  String.join(", ", IGNORE_SEARCH_ISSUE),
-                                  String.join(", ", epic.getIds())));
+            final var response = jiraApiService.searchIssue(buildJql(epicIds));
             final Set<String> assigneeIdSet = new HashSet<>();
             if (Objects.nonNull(response)) {
                 final var issues = response.getIssues();
@@ -407,9 +488,12 @@ public class ProjectService {
         Map<Long, @NotNull List<Member>> teamMembers) {
         final List<OverallTeamResponse> result = new ArrayList<>();
 
-        final var jiraMemberIds = teamMembers.values().stream().flatMap(List::stream).map(Member::getJiraMemberId)
-            .distinct().toList();
-        IssueSearchResponse issueSearchResponse = getTeamViewIssues(fromDate, toDate, jiraMemberIds);
+        final var jiraMemberIds = teamMembers.values().stream()
+                                             .flatMap(List::stream)
+                                             .map(Member::getJiraMemberId)
+                                             .distinct()
+                                             .toList();
+        final IssueSearchResponse issueSearchResponse = getTeamViewIssues(fromDate, toDate, jiraMemberIds);
 
         final var issuesByAssignee = issueSearchResponse.getIssues().stream()
             .collect(Collectors.groupingBy(issueDto -> issueDto.getFields().getAssignee().getAccountId()));
@@ -419,10 +503,10 @@ public class ProjectService {
             if (members.isEmpty()) {
                 continue;
             }
-            List<IssueDto> issues = members.stream().map(member -> issuesByAssignee.get(member.getJiraMemberId()))
-                .filter(Objects::nonNull)
-                .flatMap(List::stream).toList();
-            OverallTeamResponse teamResponse = new OverallTeamResponse();
+            final List<IssueDto> issues = members.stream().map(member -> issuesByAssignee.get(member.getJiraMemberId()))
+                                                 .filter(Objects::nonNull)
+                                                 .flatMap(List::stream).toList();
+            final OverallTeamResponse teamResponse = new OverallTeamResponse();
             teamResponse.setTeam(team.getName());
             setTeamOverallResolvedIssueAndStoryPointData(teamResponse, issues, members, fromDate, toDate);
             setTeamOverallTimeSpent(teamResponse, issues, members, fromDate, toDate);
@@ -432,9 +516,11 @@ public class ProjectService {
         return result;
     }
 
-    private void setTeamOverallResolvedIssueAndStoryPointData(OverallTeamResponse teamResponse,
-        List<IssueDto> issues, List<Member> members, LocalDate fromDate, LocalDate toDate) {
-        List<IssueDto> resolvedIssues = Helper.getResolvedIssuesInRange(issues, fromDate, toDate);
+    private static void setTeamOverallResolvedIssueAndStoryPointData(OverallTeamResponse teamResponse,
+                                                                     List<IssueDto> issues,
+                                                                     List<Member> members, LocalDate fromDate,
+                                                                     LocalDate toDate) {
+        final List<IssueDto> resolvedIssues = Helper.getResolvedIssuesInRange(issues, fromDate, toDate);
         final long monthCount = DatetimeUtils.countMonthConsideringToday(fromDate, toDate);
         final var totalResolvedIssue = resolvedIssues.size();
         teamResponse.setTotalResolvedIssue(totalResolvedIssue);
@@ -449,19 +535,19 @@ public class ProjectService {
         teamResponse.setAvgStoryPoint(NumberUtils.round(storyPoints / (monthCount * members.size())));
     }
 
-    private void setTeamOverallTimeSpent(OverallTeamResponse teamResponse,
-        List<IssueDto> issues, List<Member> members, LocalDate fromDate, LocalDate toDate) {
+    private static void setTeamOverallTimeSpent(OverallTeamResponse teamResponse,
+                                                List<IssueDto> issues, List<Member> members, LocalDate fromDate,
+                                                LocalDate toDate) {
         double totalTimeSpent = 0.0;
         final long monthCount = DatetimeUtils.countMonthConsideringToday(fromDate, toDate);
         for (IssueDto issue : issues) {
             final var fields = issue.getFields();
-            WorkLogDto workLog = fields.getWorklog();
-            if (workLog != null) {
-                List<WorkLogDto.Log> workLogs = workLog.getWorklogs();
+            final WorkLogDto workLog = fields.getWorklog();
+            if (Objects.nonNull(workLog)) {
+                final List<WorkLogDto.Log> workLogs = workLog.getWorklogs();
                 if (workLogs != null) {
                     for (WorkLogDto.Log wl : workLogs) {
-                        Date started = wl.getStarted();
-                        LocalDate startedLocalDate = DatetimeUtils.dateToLocalDate(started);
+                        final LocalDate startedLocalDate = DatetimeUtils.dateToLocalDate(wl.getStarted());
                         if (DatetimeUtils.isLocalDateBetween(startedLocalDate, fromDate, toDate)) {
                             totalTimeSpent += wl.getTimeSpentSeconds();
                         }
@@ -469,7 +555,7 @@ public class ProjectService {
                 }
             }
         }
-        teamResponse.setAvgTimeSpent(NumberUtils.round(totalTimeSpent / (monthCount * members.size() * Constant.TIME_MD)));
+        teamResponse.setAvgTimeSpent(NumberUtils.round(totalTimeSpent / (monthCount * members.size() * Constant.TIME_MM)));
     }
 
     public IssueSearchResponse getTeamViewIssues(LocalDate fromDate, LocalDate toDate, List<String> jiraMemberIds) {
@@ -481,7 +567,7 @@ public class ProjectService {
                     OR  (created <= %s AND updated >= %s)
                 ) \
             """,
-            String.join(", ", IGNORE_SEARCH_ISSUE),
+            String.join(", ", IGNORE_SEARCH_ISSUE_TYPE),
             fromDate,
             toDate,
             toDate,

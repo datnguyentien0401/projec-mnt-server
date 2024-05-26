@@ -8,5 +8,5 @@ public enum JiraIssueType {
     STORY,
     ;
 
-    public static final List<String> IGNORE_SEARCH_ISSUE = List.of(INITIATIVE.name(), EPIC.name(), STORY.name());
+    public static final List<String> IGNORE_SEARCH_ISSUE_TYPE = List.of(INITIATIVE.name(), EPIC.name(), STORY.name());
 }

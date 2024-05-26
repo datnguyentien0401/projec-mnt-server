@@ -1,5 +1,20 @@
 package com.example.projecmntserver.service;
 
+import java.time.LocalDate;
+import java.util.ArrayList;
+import java.util.Date;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Set;
+import java.util.stream.Collectors;
+
+import javax.transaction.Transactional;
+
+import org.springframework.stereotype.Service;
+import org.springframework.util.CollectionUtils;
+
 import com.example.projecmntserver.constant.Constant;
 import com.example.projecmntserver.domain.Member;
 import com.example.projecmntserver.domain.Team;
@@ -16,19 +31,9 @@ import com.example.projecmntserver.repository.TeamRepository;
 import com.example.projecmntserver.util.DatetimeUtils;
 import com.example.projecmntserver.util.Helper;
 import com.example.projecmntserver.util.NumberUtils;
-import java.time.LocalDate;
-import java.util.ArrayList;
-import java.util.Date;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Objects;
-import java.util.Set;
-import java.util.stream.Collectors;
-import javax.transaction.Transactional;
+
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.stereotype.Service;
 
 @Service
 @RequiredArgsConstructor
@@ -81,9 +86,10 @@ public class TeamService {
         return result;
     }
 
-    private void setResolvedIssueAndStoryPointData(TeamViewResponse result,
-                                      LocalDate fromDate, LocalDate toDate,
-                                      Map<String, String> member, IssueSearchResponse teamViewIssues) {
+    private static void setResolvedIssueAndStoryPointData(TeamViewResponse result,
+                                                          LocalDate fromDate, LocalDate toDate,
+                                                          Map<String, String> member,
+                                                          IssueSearchResponse teamViewIssues) {
         final Map<Integer, Map<String, Object>> resolvedIssueData = new HashMap<>();
         final Map<String, Map<Integer, Integer>> resolvedIssueChartData = new HashMap<>();
         final Map<Integer, Map<String, Object>> storyPointData = new HashMap<>();
@@ -116,7 +122,7 @@ public class TeamService {
         });
     }
 
-    private void setTimeSpentData(TeamViewResponse result, LocalDate fromDate, LocalDate toDate,
+    private static void setTimeSpentData(TeamViewResponse result, LocalDate fromDate, LocalDate toDate,
         IssueSearchResponse teamViewIssues) {
         final Map<Integer, Map<String, Object>> timeSpentData = new HashMap<>();
 
@@ -129,21 +135,21 @@ public class TeamService {
         result.setTimeSpentData(addMonthHasNoDataAndRoundData(timeSpentData, fromDate, toDate));
     }
 
-    private void setTimeSpentData(LocalDate fromDate, LocalDate toDate, IssueDto issue,
+    private static void setTimeSpentData(LocalDate fromDate, LocalDate toDate, IssueDto issue,
         Map<Integer, Map<String, Object>> timeSpentData) {
         final var fields = issue.getFields();
         final var assignee = fields.getAssignee();
         if (Objects.isNull(assignee)) {
             return;
         }
-        WorkLogDto worklog = fields.getWorklog();
-        if (worklog != null) {
-            List<WorkLogDto.Log> workLogs = worklog.getWorklogs();
-            if (workLogs != null) {
+        final WorkLogDto worklog = fields.getWorklog();
+        if (Objects.nonNull(worklog)) {
+            final List<WorkLogDto.Log> workLogs = worklog.getWorklogs();
+            if (!CollectionUtils.isEmpty(workLogs)) {
                 workLogs.forEach(wl -> {
-                    String accountId = wl.getAuthor().getAccountId();
-                    Date started = wl.getStarted();
-                    LocalDate startedLocalDate = DatetimeUtils.dateToLocalDate(started);
+                    final String accountId = wl.getAuthor().getAccountId();
+                    final Date started = wl.getStarted();
+                    final LocalDate startedLocalDate = DatetimeUtils.dateToLocalDate(started);
                     if (DatetimeUtils.isLocalDateBetween(startedLocalDate, fromDate, toDate)) {
                         setData(timeSpentData, DatetimeUtils.getMonth(started), accountId,
                             (double) wl.getTimeSpentSeconds() / Constant.TIME_MD);

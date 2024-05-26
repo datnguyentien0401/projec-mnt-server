@@ -10,9 +10,7 @@ import lombok.NoArgsConstructor;
 @JsonIgnoreProperties(ignoreUnknown = true)
 @AllArgsConstructor
 @NoArgsConstructor
-public class IssueDto {
-    private String id;
-    private String key;
-    private FieldDto fields;
-    private ChangelogDto changelog;
+public class HistoryItemDto {
+    private String field;
+    private String toString;
 }

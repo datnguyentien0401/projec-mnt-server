@@ -8,6 +8,8 @@ import org.springframework.http.client.ClientHttpRequestExecution;
 import org.springframework.http.client.ClientHttpRequestInterceptor;
 import org.springframework.http.client.ClientHttpResponse;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+
 import lombok.extern.slf4j.Slf4j;
 
 @Configuration
@@ -24,7 +26,7 @@ public class LoggingInterceptor implements ClientHttpRequestInterceptor {
 
     private static void logRequestDetails(HttpRequest request) {
         log.info("JIRA Request method: " + request.getMethod());
-        log.info("JIRA Request URI: " + request.getURI().getPath());
+        log.info("JIRA Request URI: " + request.getURI());
         log.info("JIRA Request headers: " + request.getHeaders());
     }
 

@@ -1,5 +1,8 @@
 package com.example.projecmntserver.dto.jira;
 
+import java.util.Date;
+import java.util.List;
+
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 
 import lombok.AllArgsConstructor;
@@ -10,9 +13,7 @@ import lombok.NoArgsConstructor;
 @JsonIgnoreProperties(ignoreUnknown = true)
 @AllArgsConstructor
 @NoArgsConstructor
-public class IssueDto {
-    private String id;
-    private String key;
-    private FieldDto fields;
-    private ChangelogDto changelog;
+public class HistoryDto {
+    private Date created;
+    private List<HistoryItemDto> items;
 }

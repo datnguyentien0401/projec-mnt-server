@@ -1,14 +1,17 @@
 package com.example.projecmntserver.dto.jira;
 
+import java.time.LocalDate;
+import java.util.Date;
+
+import org.springframework.format.annotation.DateTimeFormat;
+
 import com.example.projecmntserver.constant.Constant;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import java.time.LocalDate;
-import java.util.Date;
+
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
-import org.springframework.format.annotation.DateTimeFormat;
 
 @Data
 @JsonIgnoreProperties(ignoreUnknown = true)

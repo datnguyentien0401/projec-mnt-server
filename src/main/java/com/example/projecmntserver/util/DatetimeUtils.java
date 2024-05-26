@@ -1,6 +1,5 @@
 package com.example.projecmntserver.util;
 
-import com.example.projecmntserver.constant.Constant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.Month;
@@ -12,11 +11,16 @@ import java.util.Calendar;
 import java.util.Date;
 import java.util.Locale;
 import java.util.Objects;
+
 import javax.validation.constraints.NotNull;
-import lombok.AccessLevel;
-import lombok.NoArgsConstructor;
+
 import org.springframework.lang.Nullable;
 import org.springframework.util.StringUtils;
+
+import com.example.projecmntserver.constant.Constant;
+
+import lombok.AccessLevel;
+import lombok.NoArgsConstructor;
 
 @NoArgsConstructor(access = AccessLevel.PRIVATE)
 public final class DatetimeUtils {
@@ -60,6 +64,9 @@ public final class DatetimeUtils {
 
     public static String toMonth(@NotNull LocalDate date) {
         return toDate(date, Constant.MONTH_PATTERN);
+    }
+    public static String toMonth(@NotNull Date date) {
+        return toMonth(dateToLocalDate(date));
     }
     public static String toMonth(@NotNull int month, @Nullable TextStyle style) {
         return Month.of(month).getDisplayName(Objects.nonNull(style) ? style : TextStyle.SHORT, Locale.ENGLISH);
