@@ -260,9 +260,7 @@ public class ProjectService {
             projectByEpic.put(projectName, projectByMonth);
         }
 
-        if (type == ProjectSearchType.RESOLVED_ISSUE || type == ProjectSearchType.STORY_POINT) {
-            getResolvedIssueDataPerMonthV2(projectByEpic, epicMap, type, jql, fromDate, toDate);
-        }
+        getResolvedIssueDataPerMonthV2(projectByEpic, epicMap, type, jql, fromDate, toDate);
         return new ArrayList<>(projectByEpic.values());
     }
 
@@ -399,9 +397,9 @@ public class ProjectService {
                     project.setEpicName(projectName);
                 }
 
-                if (type == ProjectSearchType.RESOLVED_ISSUE) {
-                    project.setTotalResolvedIssue(project.getTotalResolvedIssue() + 1);
-                } else if (Objects.nonNull(fields.getStoryPoint())) {
+                project.setTotalResolvedIssue(project.getTotalResolvedIssue() + 1);
+
+                if (type == ProjectSearchType.STORY_POINT && Objects.nonNull(fields.getStoryPoint())) {
                     project.setTotalStoryPoint(
                             project.getTotalStoryPoint() + fields.getStoryPoint());
                 }

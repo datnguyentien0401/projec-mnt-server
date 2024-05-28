@@ -4,8 +4,13 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    container_name: app
+    container_name: server
     ports:
       - "8888:8888"
     environment:
       - PROFILE=release
+    volumes:
+      - app_data:/server
+volumes:
+  app_data:
+    driver: local
