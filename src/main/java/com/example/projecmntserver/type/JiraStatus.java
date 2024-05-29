@@ -30,7 +30,7 @@ public enum JiraStatus {
     CHECKIN("checkin"),
     PREFIXED("prefixed"),
     KILLED("killed"),
-    WONT_FIX("won't fix"),
+    WONT_FIX("\"won't fix\""),
     Fixed("fixed"),
     DONE("done"),
     CLOSED("closed");
