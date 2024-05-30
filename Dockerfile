@@ -8,10 +8,10 @@ RUN ./gradlew build
 
 FROM openjdk:17-oracle AS runner
 
-WORKDIR /app
+WORKDIR /server
 
-COPY --from=builder /home/gradle/src/build/libs/projec-mnt-server-0.0.1-SNAPSHOT.jar /app/app.jar
+COPY --from=builder /home/gradle/src/build/libs/projec-mnt-server-0.0.1-SNAPSHOT.jar /server/server.jar
 
 EXPOSE 8888
 
-ENTRYPOINT ["java", "-Dspring.profiles.active=${PROFILE}", "-jar", "app.jar"]
+ENTRYPOINT ["java", "-Dspring.profiles.active=${PROFILE}", "-jar", "server.jar"]

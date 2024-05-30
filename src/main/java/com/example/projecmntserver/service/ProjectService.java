@@ -199,7 +199,6 @@ public class ProjectService {
             project.setTotalResolvedIssue(project.getTotalResolvedIssue() + 1);
             projectByMonth.put(month, project);
         }
-
     }
 
     private List<Map<String, ProjectDto>> getProjectListPerMonthV2(List<IssueDto> childIssues,
@@ -215,7 +214,6 @@ public class ProjectService {
             projectByEpic.put(epicDto.getName(), new HashMap<>());
             epicMap.put(epicDto.getName(), epicDto);
         });
-
 
         if (childIssues.isEmpty()) {
             return new ArrayList<>();
@@ -268,10 +266,9 @@ public class ProjectService {
             projectByEpic.put(projectName, projectByMonth);
         }
 
-        if (type == ProjectSearchType.RESOLVED_ISSUE || type == ProjectSearchType.STORY_POINT) {
-            List<IssueDto> resolvedIssues = Helper.getResolvedIssuesInRange(childIssues, fromDate, toDate);
-            getResolvedIssueDataPerMonthV2(projectByEpic, epicMap, type, resolvedIssues);
-        }
+        List<IssueDto> resolvedIssues = Helper.getResolvedIssuesInRange(childIssues, fromDate, toDate);
+        getResolvedIssueDataPerMonthV2(projectByEpic, epicMap, type, resolvedIssues);
+
         return new ArrayList<>(projectByEpic.values());
     }
 
@@ -398,10 +395,9 @@ public class ProjectService {
                 project.setEpicIds(epicMap.get(projectName).getIds());
                 project.setEpicName(projectName);
             }
-
-            if (type == ProjectSearchType.RESOLVED_ISSUE) {
                 project.setTotalResolvedIssue(project.getTotalResolvedIssue() + 1);
-            } else if (Objects.nonNull(fields.getStoryPoint())) {
+
+                if (type == ProjectSearchType.STORY_POINT && Objects.nonNull(fields.getStoryPoint())) {
                 project.setTotalStoryPoint(
                     project.getTotalStoryPoint() + fields.getStoryPoint());
             }
