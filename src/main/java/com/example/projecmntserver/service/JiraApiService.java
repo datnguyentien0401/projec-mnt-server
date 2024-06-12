@@ -25,6 +25,7 @@ import org.springframework.web.client.RestTemplate;
 import com.example.projecmntserver.constant.JiraPathConstant;
 import com.example.projecmntserver.dto.jira.IssueSearchResponse;
 import com.example.projecmntserver.dto.jira.JiraProjectDto;
+import com.example.projecmntserver.dto.jira.JiraProjectSearchResponse;
 import com.example.projecmntserver.dto.jira.UserSearchDto;
 
 import lombok.RequiredArgsConstructor;
@@ -39,11 +40,19 @@ public class JiraApiService {
     private final RestTemplate restTemplate;
     private final HttpEntity<String> httpEntity;
 
-    public JiraProjectDto[] getAllProject(String projectName) {
+    public JiraProjectDto[] searchProject(String projectName) {
         return restTemplate.exchange(new StringBuilder(jiraBaseUrl).append(JiraPathConstant.GET_ALL)
                                                                    .append(String.format("?query=%s", projectName))
                                                                    .toString(),
                                      HttpMethod.GET, httpEntity, JiraProjectDto[].class).getBody();
+    }
+
+    public JiraProjectSearchResponse searchProject(List<String> projectIds) {
+        final StringBuilder url = new StringBuilder(jiraBaseUrl).append(JiraPathConstant.PROJECT_SEARCH).append("?1=1");
+        projectIds.forEach(id -> url.append(String.format("&id=%s", id)));
+
+        return restTemplate.exchange(url.toString(), HttpMethod.GET, httpEntity,
+                                     JiraProjectSearchResponse.class).getBody();
     }
 
     public IssueSearchResponse searchIssueExpand(String jql, String expand, String... fields) {

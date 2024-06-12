@@ -8,6 +8,7 @@ import static com.example.projecmntserver.type.JiraStatus.OPEN_STATUS_LIST;
 import java.time.LocalDate;
 import java.time.YearMonth;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -78,14 +79,63 @@ public class ProjectService {
 
     private final JiraApiService jiraApiService;
 
-    public List<EpicDto> getAllEpic(List<String> jiraProjectIds, boolean groupEpic, boolean resolvedEpic) {
+    public List<EpicDto> getAllEpics(List<String> jiraProjectIds, boolean groupEpic, boolean resolvedEpic) {
         return getAllEpics(new ArrayList<>(), jiraProjectIds, groupEpic, resolvedEpic);
     }
 
     private static String buildJql(List<String> epicIds) {
-        return String.format("'epic link' IN (%s) AND type NOT IN (%s)",
-                             String.join(",", epicIds),
-                             String.join(",", IGNORE_SEARCH_ISSUE_TYPE));
+        final var jql = new StringBuilder(
+                String.format("type NOT IN (%s) ", String.join(",", IGNORE_SEARCH_ISSUE_TYPE)));
+        if (!CollectionUtils.isEmpty(epicIds)) {
+            jql.append(
+                    String.format(" AND 'epic link' IN (%s)", String.join(",", epicIds)));
+        }
+        return jql.toString();
+    }
+
+    public ProjectResponse getJiraProjectStatistic(List<String> jiraProjectIds,
+                                                   LocalDate fromDate,
+                                                   LocalDate toDate) {
+        final var projectResponse = new ProjectResponse();
+
+        final List<JiraProjectDto> jiraProjects = getJiraProject(jiraProjectIds);
+
+        final List<String> allEpicIds = new ArrayList<>();
+
+        final List<ProjectDto> projectListPerMonth = new ArrayList<>();
+
+        for (JiraProjectDto jiraProject : jiraProjects) {
+            final String jiraProjectId = jiraProject.getId();
+            final List<String> epicIds =  new ArrayList<>();
+            getAllEpics(Collections.singletonList(jiraProjectId), false, true).forEach(
+                    epicDto -> epicIds.addAll(epicDto.getIds())
+            );
+            if (CollectionUtils.isEmpty(epicIds)) {
+                continue;
+            }
+            final String jql = buildJql(epicIds);
+            projectListPerMonth.addAll(getProjectSumDataPerMonthV2(jql, fromDate, toDate, true)
+                                               .values()
+                                               .stream()
+                                               .peek(project -> {
+                                                   project.setJiraProjectId(jiraProjectId);
+                                                   project.setJiraProjectName(jiraProject.getName());
+                                               })
+                                               .sorted(Comparator.comparing(ProjectDto::getMonth))
+                                               .toList());
+            allEpicIds.addAll(epicIds);
+        }
+        projectResponse.setListData(projectListPerMonth);
+
+        final String jql = buildJql(allEpicIds);
+        projectResponse.setTotalData(
+                new ArrayList<>(
+                        getProjectSumDataPerMonthV2(jql, fromDate, toDate, false).values())
+                        .stream()
+                        .sorted(Comparator.comparing(ProjectDto::getMonth))
+                        .toList());
+
+        return projectResponse;
     }
 
     public ProjectResponse getProjectStatisticV2(List<String> epicIds,
@@ -98,7 +148,7 @@ public class ProjectService {
 
         projectResponse.setTotalData(
                 new ArrayList<>(
-                        getProjectSumDataPerMonthV2(jql, fromDate, toDate).values())
+                        getProjectSumDataPerMonthV2(jql, fromDate, toDate, false).values())
                         .stream()
                         .sorted(Comparator.comparing(ProjectDto::getMonth))
                         .toList());
@@ -117,7 +167,8 @@ public class ProjectService {
 
     public Map<String, ProjectDto> getProjectSumDataPerMonthV2(String jql,
                                                                LocalDate fromDate,
-                                                               LocalDate toDate) {
+                                                               LocalDate toDate,
+                                                               boolean calculateIssue) {
         final var response = jiraApiService.searchIssue(jql, ISSUE_FIELDS);
         if (response == null) {
             return new HashMap<>();
@@ -152,6 +203,9 @@ public class ProjectService {
                 if (Objects.nonNull(fields.getAssignee())) {
                     projectDto.getAssignees().add(fields.getAssignee().getAccountId());
                 }
+                if (calculateIssue && DatetimeUtils.countMonth(tempDate, toDate) <= Constant.COLUMN_CHART_MONTH_DISPLAY_NUM) {
+                    handleIssueChartData(projectDto, issue, month, fromDate, toDate);
+                }
                 projectByMonth.put(month, projectDto);
                 tempDate = tempDate.plusMonths(1);
             }
@@ -161,7 +215,7 @@ public class ProjectService {
     }
 
     private void getResolvedIssueSumDataPerMonthV2(Map<String, ProjectDto> projectByMonth, String jql,
-                                                 LocalDate fromDate, LocalDate toDate) {
+                                                   LocalDate fromDate, LocalDate toDate) {
         final var response = jiraApiService.searchIssue(
                 new StringBuilder(jql)
                         .append(String.format(" AND resolved >= %s AND resolved <= %s", fromDate, toDate))
@@ -576,8 +630,16 @@ public class ProjectService {
         return jiraApiService.searchIssue(jql, ISSUE_FIELDS);
     }
 
+    public List<JiraProjectDto> getJiraProject(List<String> jiraProjectIds) {
+        final var response = jiraApiService.searchProject(jiraProjectIds);
+        if (response == null) {
+            return new ArrayList<>();
+        }
+        return response.getValues();
+    }
+
     public List<JiraProjectDto> getJiraProject(String jiraProjectName) {
-        final var response = jiraApiService.getAllProject(jiraProjectName);
+        final var response = jiraApiService.searchProject(jiraProjectName);
         if (response == null) {
             return new ArrayList<>();
         }

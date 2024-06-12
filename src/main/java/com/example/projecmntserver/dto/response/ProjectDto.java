@@ -6,6 +6,7 @@ import java.util.List;
 import java.util.Set;
 
 import org.springframework.util.CollectionUtils;
+import org.springframework.util.StringUtils;
 
 import com.example.projecmntserver.constant.Constant;
 import com.example.projecmntserver.util.NumberUtils;
@@ -29,13 +30,15 @@ public class ProjectDto {
     private String month;
     private boolean forColumnChart;
     private Set<String> assignees = new HashSet<>();
+    private String jiraProjectId;
+    private String jiraProjectName;
 
     public String getProjectName() {
-        return epicName;
+        return StringUtils.hasText(jiraProjectName) ? jiraProjectName : epicName;
     }
 
     public String getProjectId() {
-        return CollectionUtils.isEmpty(epicIds) ? "" : String.join("-", epicIds);
+        return StringUtils.hasText(jiraProjectId) ? jiraProjectId : (CollectionUtils.isEmpty(epicIds) ? "" : String.join("-", epicIds));
     }
 
     public Double getTotalTimeSpentMM() {
