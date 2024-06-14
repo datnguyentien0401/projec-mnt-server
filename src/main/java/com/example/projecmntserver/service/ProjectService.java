@@ -113,8 +113,7 @@ public class ProjectService {
             if (CollectionUtils.isEmpty(epicIds)) {
                 continue;
             }
-            final String jql = buildJql(epicIds);
-            projectListPerMonth.addAll(getProjectSumDataPerMonthV2(jql, fromDate, toDate, true)
+            projectListPerMonth.addAll(getProjectSumDataPerMonthV2(getChildIssues(epicIds), fromDate, toDate, true)
                                                .values()
                                                .stream()
                                                .peek(project -> {
@@ -127,10 +126,9 @@ public class ProjectService {
         }
         projectResponse.setListData(projectListPerMonth);
 
-        final String jql = buildJql(allEpicIds);
         projectResponse.setTotalData(
                 new ArrayList<>(
-                        getProjectSumDataPerMonthV2(jql, fromDate, toDate, false).values())
+                        getProjectSumDataPerMonthV2(getChildIssues(allEpicIds), fromDate, toDate, false).values())
                         .stream()
                         .sorted(Comparator.comparing(ProjectDto::getMonth))
                         .toList());
@@ -169,7 +167,7 @@ public class ProjectService {
 
         projectResponse.setTotalData(
                 new ArrayList<>(
-                        getProjectSumDataPerMonthV2(childIssues, fromDate, toDate).values())
+                        getProjectSumDataPerMonthV2(childIssues, fromDate, toDate, false).values())
                         .stream()
                         .sorted(Comparator.comparing(ProjectDto::getMonth))
                         .toList());
@@ -188,7 +186,8 @@ public class ProjectService {
 
     public Map<String, ProjectDto> getProjectSumDataPerMonthV2(List<IssueDto> issues,
                                                                LocalDate fromDate,
-                                                               LocalDate toDate) {
+                                                               LocalDate toDate,
+                                                               boolean calculateIssue) {
         final Map<String, ProjectDto> projectByMonth = new HashMap<>();
         for (var issue : issues) {
             final var fields = issue.getFields();
