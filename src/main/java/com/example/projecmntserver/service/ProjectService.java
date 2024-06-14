@@ -145,14 +145,14 @@ public class ProjectService {
     }
 
     private List<IssueDto> getChildIssues(List<String> epicIds) {
-        String jql = buildJql(epicIds);
-        var response = jiraApiService.searchIssueExpand(jql, "changelog", ISSUE_FIELDS);
+        final String jql = buildJql(epicIds);
+        final var response = jiraApiService.searchIssueExpand(jql, "changelog", ISSUE_FIELDS);
         return Objects.isNull(response) ? Collections.emptyList() : response.getIssues();
     }
 
     private List<IssueDto> getEpicIssues(List<String> epicIds) {
-        String jql = buildGetEpicIssuesJql(epicIds);
-        var response = jiraApiService.searchIssue(jql, ISSUE_FIELDS);
+        final String jql = buildGetEpicIssuesJql(epicIds);
+        final var response = jiraApiService.searchIssue(jql, ISSUE_FIELDS);
         return Objects.isNull(response) ? Collections.emptyList() : response.getIssues();
     }
 
@@ -162,8 +162,8 @@ public class ProjectService {
                                                  LocalDate toDate) {
         final var projectResponse = new ProjectResponse();
 
-        List<IssueDto> childIssues = getChildIssues(epicIds);
-        List<IssueDto> epicIssues = getEpicIssues(epicIds);
+        final List<IssueDto> childIssues = getChildIssues(epicIds);
+        final List<IssueDto> epicIssues = getEpicIssues(epicIds);
 
         projectResponse.setTotalData(
                 new ArrayList<>(
@@ -224,12 +224,13 @@ public class ProjectService {
                 tempDate = tempDate.plusMonths(1);
             }
         }
-        List<IssueDto> resolvedIssues = Helper.getResolvedIssuesInRange(issues, fromDate, toDate);
+        final List<IssueDto> resolvedIssues = Helper.getResolvedIssuesInRange(issues, fromDate, toDate);
         getResolvedIssueSumDataPerMonthV2(projectByMonth, resolvedIssues);
         return projectByMonth;
     }
 
-    private void getResolvedIssueSumDataPerMonthV2(Map<String, ProjectDto> projectByMonth, List<IssueDto> issues) {
+    private static void getResolvedIssueSumDataPerMonthV2(Map<String, ProjectDto> projectByMonth,
+                                                          List<IssueDto> issues) {
         for (var issue : issues) {
             final var fields = issue.getFields();
 
@@ -317,7 +318,7 @@ public class ProjectService {
             projectByEpic.put(projectName, projectByMonth);
         }
 
-        List<IssueDto> resolvedIssues = Helper.getResolvedIssuesInRange(childIssues, fromDate, toDate);
+        final List<IssueDto> resolvedIssues = Helper.getResolvedIssuesInRange(childIssues, fromDate, toDate);
         getResolvedIssueDataPerMonthV2(projectByEpic, epicMap, type, resolvedIssues);
 
         return new ArrayList<>(projectByEpic.values());
@@ -420,8 +421,9 @@ public class ProjectService {
         return Constant.EMPTY_STRING;
     }
 
-    private void getResolvedIssueDataPerMonthV2(Map<String, Map<String, ProjectDto>> projectByEpic,
-        Map<String, EpicDto> epicMap, ProjectSearchType type, List<IssueDto> issues) {
+    private static void getResolvedIssueDataPerMonthV2(Map<String, Map<String, ProjectDto>> projectByEpic,
+                                                       Map<String, EpicDto> epicMap, ProjectSearchType type,
+                                                       List<IssueDto> issues) {
         for (var issue : issues) {
             final var fields = issue.getFields();
 
@@ -458,8 +460,9 @@ public class ProjectService {
         }
     }
 
-    public List<EpicDto> getAllEpics(List<IssueDto> epicIssues, List<String> epicIds, List<String> jiraProjectIds, boolean groupEpic, boolean resolvedEpic) {
-        List<IssueDto> issues;
+    public List<EpicDto> getAllEpics(List<IssueDto> epicIssues, List<String> epicIds,
+                                     List<String> jiraProjectIds, boolean groupEpic, boolean resolvedEpic) {
+        final List<IssueDto> issues;
         if (epicIssues == null) {
             String jql = "issuetype = 'epic' ";
             if (!CollectionUtils.isEmpty(epicIds)) {
@@ -533,7 +536,7 @@ public class ProjectService {
     }
 
     public List<OverallTeamResponse> getOverall(LocalDate fromDate, LocalDate toDate, List<Team> allTeams,
-        Map<Long, @NotNull List<Member>> teamMembers) {
+                                                Map<Long, @NotNull List<Member>> teamMembers) {
         final List<OverallTeamResponse> result = new ArrayList<>();
 
         final var jiraMemberIds = teamMembers.values().stream()
