@@ -47,6 +47,16 @@ public class ProjectController {
                                                                       DatetimeUtils.parse(toDate)));
     }
 
+    @GetMapping("/jira-project/search")
+    public ResponseEntity<ProjectResponse> jiraProjectSearch(
+            @RequestParam List<String> jiraProjectIds,
+            @RequestParam String fromDate,
+            @RequestParam String toDate) {
+        return ResponseEntity.ok(projectService.getJiraProjectStatistic(jiraProjectIds,
+                                                                        DatetimeUtils.parse(fromDate),
+                                                                        DatetimeUtils.parse(toDate)));
+    }
+
     private static List<String> getEpicIds(List<String> projectIds) {
         final List<String> epicIds = new ArrayList<>();
         if (!CollectionUtils.isEmpty(projectIds)) {
@@ -71,6 +81,6 @@ public class ProjectController {
             @RequestParam List<String> jiraProjectIds,
             @RequestParam(required = false, defaultValue = "true") Boolean groupEpic,
             @RequestParam(required = false, defaultValue = "false") Boolean resolvedEpic) {
-        return ResponseEntity.ok(projectService.getAllEpic(jiraProjectIds, groupEpic, resolvedEpic));
+        return ResponseEntity.ok(projectService.getAllEpics(jiraProjectIds, groupEpic, resolvedEpic));
     }
 }
