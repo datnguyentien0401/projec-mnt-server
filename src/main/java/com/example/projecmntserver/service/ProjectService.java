@@ -80,7 +80,7 @@ public class ProjectService {
     private final JiraApiService jiraApiService;
 
     public List<EpicDto> getAllEpics(List<String> jiraProjectIds, boolean groupEpic, boolean resolvedEpic) {
-        return getAllEpics(null, new ArrayList<>(), jiraProjectIds, groupEpic, resolvedEpic);
+        return getAllEpics(new ArrayList<>(), new ArrayList<>(), jiraProjectIds, groupEpic, resolvedEpic);
     }
 
     private static String buildJql(List<String> epicIds) {
@@ -93,6 +93,12 @@ public class ProjectService {
         return jql.toString();
     }
 
+    private List<String> getAllEpicIds(List<String> jiraProjectIds) {
+        final List<EpicDto> allEpics = getAllEpics(jiraProjectIds, false, true);
+        final List<String> allEpicIds = new ArrayList<>();
+        allEpics.forEach(e -> allEpicIds.addAll(e.getIds()));
+        return allEpicIds;
+    }
     public ProjectResponse getJiraProjectStatistic(List<String> jiraProjectIds,
                                                    LocalDate fromDate,
                                                    LocalDate toDate) {
@@ -100,20 +106,30 @@ public class ProjectService {
 
         final List<JiraProjectDto> jiraProjects = getJiraProject(jiraProjectIds);
 
-        final List<String> allEpicIds = new ArrayList<>();
+        final List<String> allEpicIds = getAllEpicIds(jiraProjectIds);
+
+        final List<IssueDto> allIssues = getChildIssues(allEpicIds);
+
+        final Map<String, List<IssueDto>> issuesByJiraProject = jiraProjects.stream().collect(
+                Collectors.toMap(JiraProjectDto::getId, p -> new ArrayList<>()));
+
+        allIssues.forEach(issue -> {
+            final String projectId = issue.getFields().getProject().getId();
+            if (issuesByJiraProject.containsKey(projectId)) {
+                issuesByJiraProject.get(projectId).add(issue);
+            }
+        });
 
         final List<ProjectDto> projectListPerMonth = new ArrayList<>();
 
         for (JiraProjectDto jiraProject : jiraProjects) {
             final String jiraProjectId = jiraProject.getId();
-            final List<String> epicIds =  new ArrayList<>();
-            getAllEpics(Collections.singletonList(jiraProjectId), false, true).forEach(
-                    epicDto -> epicIds.addAll(epicDto.getIds())
-            );
-            if (CollectionUtils.isEmpty(epicIds)) {
+
+            final List<IssueDto> issues = issuesByJiraProject.getOrDefault(jiraProjectId, new ArrayList<>());
+            if (CollectionUtils.isEmpty(issues)) {
                 continue;
             }
-            projectListPerMonth.addAll(getProjectSumDataPerMonthV2(getChildIssues(epicIds), fromDate, toDate, true)
+            projectListPerMonth.addAll(getProjectSumDataPerMonthV2(issues, fromDate, toDate, true)
                                                .values()
                                                .stream()
                                                .peek(project -> {
@@ -122,13 +138,12 @@ public class ProjectService {
                                                })
                                                .sorted(Comparator.comparing(ProjectDto::getMonth))
                                                .toList());
-            allEpicIds.addAll(epicIds);
         }
         projectResponse.setListData(projectListPerMonth);
 
         projectResponse.setTotalData(
                 new ArrayList<>(
-                        getProjectSumDataPerMonthV2(getChildIssues(allEpicIds), fromDate, toDate, false).values())
+                        getProjectSumDataPerMonthV2(allIssues, fromDate, toDate, false).values())
                         .stream()
                         .sorted(Comparator.comparing(ProjectDto::getMonth))
                         .toList());
@@ -463,7 +478,7 @@ public class ProjectService {
     public List<EpicDto> getAllEpics(List<IssueDto> epicIssues, List<String> epicIds,
                                      List<String> jiraProjectIds, boolean groupEpic, boolean resolvedEpic) {
         final List<IssueDto> issues;
-        if (epicIssues == null) {
+        if (CollectionUtils.isEmpty(epicIssues)) {
             String jql = "issuetype = 'epic' ";
             if (!CollectionUtils.isEmpty(epicIds)) {
                 jql += String.format(" AND id IN (%s) ", String.join(",", epicIds));
@@ -505,7 +520,7 @@ public class ProjectService {
 
     public List<EpicRemainingResponse> getEpicRemaining(List<String> epicIds) {
         final List<EpicRemainingResponse> result = new ArrayList<>();
-        final List<EpicDto> allEpics = getAllEpics(null, epicIds, new ArrayList<>(), false, false);
+        final List<EpicDto> allEpics = getAllEpics(new ArrayList<>(), epicIds, new ArrayList<>(), false, false);
         for (var epic : allEpics) {
             final var epicRemainingResponse = new EpicRemainingResponse();
             epicRemainingResponse.setEpicName(epic.getName());
