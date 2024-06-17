@@ -21,8 +21,7 @@ public class FieldDto {
     private JiraProjectDto project;
     private AssigneeDto assignee;
     private StatusDto status;
-    @JsonProperty("summary")
-    private String epicName;
+    private String summary;
     @JsonProperty("customfield_10308")
     private Double storyPoint;
     @JsonProperty("timeestimate")

@@ -165,6 +165,12 @@ public class ProjectService {
         return Objects.isNull(response) ? Collections.emptyList() : response.getIssues();
     }
 
+    private List<IssueDto> getChildIssuesNoExpand(List<String> epicIds) {
+        final String jql = buildJql(epicIds);
+        final var response = jiraApiService.searchIssue(jql, ISSUE_FIELDS);
+        return Objects.isNull(response) ? Collections.emptyList() : response.getIssues();
+    }
+
     private List<IssueDto> getEpicIssues(List<String> epicIds) {
         final String jql = buildGetEpicIssuesJql(epicIds);
         final var response = jiraApiService.searchIssue(jql, ISSUE_FIELDS);
@@ -269,7 +275,8 @@ public class ProjectService {
     }
 
     private List<Map<String, ProjectDto>> getProjectListPerMonthV2(List<IssueDto> childIssues,
-        List<IssueDto> epicIssues, List<String> epicIds,
+                                                                   List<IssueDto> epicIssues,
+                                                                   List<String> epicIds,
                                                                    ProjectSearchType type,
                                                                    LocalDate fromDate,
                                                                    LocalDate toDate) {
@@ -481,9 +488,9 @@ public class ProjectService {
         if (CollectionUtils.isEmpty(epicIssues)) {
             String jql = "issuetype = 'epic' ";
             if (!CollectionUtils.isEmpty(epicIds)) {
-                jql += String.format(" AND id IN (%s) ", String.join(",", epicIds));
+                jql += String.format(" AND id IN (%s)", String.join(",", epicIds));
             } else if (!CollectionUtils.isEmpty(jiraProjectIds)) {
-                jql += String.format(" AND project IN (%s) ", String.join(",", jiraProjectIds));
+                jql += String.format(" AND project IN (%s)", String.join(",", jiraProjectIds));
             }
             if (!resolvedEpic) {
                 jql += String.format(" AND status NOT IN (%s) ",
@@ -500,8 +507,8 @@ public class ProjectService {
         }
         final Map<String, EpicDto> epicGroups = new HashMap<>();
         for (var epic : issues) {
-            final String epicName = groupEpic ? getEpicPrefix(epic.getFields().getEpicName()) :
-                                    epic.getFields().getEpicName();
+            final String epicName = groupEpic ? getEpicPrefix(epic.getFields().getSummary()) :
+                                    epic.getFields().getSummary();
             epicGroups.computeIfAbsent(epicName, key -> new EpicDto());
             final EpicDto epicDto = epicGroups.get(epicName);
             epicDto.getIds().add(epic.getId());
@@ -521,6 +528,17 @@ public class ProjectService {
     public List<EpicRemainingResponse> getEpicRemaining(List<String> epicIds) {
         final List<EpicRemainingResponse> result = new ArrayList<>();
         final List<EpicDto> allEpics = getAllEpics(new ArrayList<>(), epicIds, new ArrayList<>(), false, false);
+
+        final Map<String, List<IssueDto>> issuesByEpic = allEpics.stream().collect(
+                Collectors.toMap(EpicDto::getName, p -> new ArrayList<>()));
+
+        getChildIssuesNoExpand(epicIds).forEach(issue -> {
+            final String epicName = getProjectName(issue.getFields());
+            if (issuesByEpic.containsKey(epicName)) {
+                issuesByEpic.get(epicName).add(issue);
+            }
+        });
+
         for (var epic : allEpics) {
             final var epicRemainingResponse = new EpicRemainingResponse();
             epicRemainingResponse.setEpicName(epic.getName());
@@ -528,19 +546,16 @@ public class ProjectService {
             epicRemainingResponse.setDueDate(epic.getDueDate());
             epicRemainingResponse.setStatus(epic.getStatus());
 
-            final var response = jiraApiService.searchIssue(buildJql(epicIds));
+            final var issuesInEpic = issuesByEpic.get(epic.getName());
             final Set<String> assigneeIdSet = new HashSet<>();
-            if (Objects.nonNull(response)) {
-                final var issues = response.getIssues();
-                for (var issue : issues) {
-                    final var fields = issue.getFields();
-                    if (Objects.nonNull(fields.getTimeEstimate())) {
-                        epicRemainingResponse.setTimeEstimate(
-                                epicRemainingResponse.getTimeEstimate() + fields.getTimeEstimate());
-                    }
-                    if (Objects.nonNull(fields.getAssignee())) {
-                        assigneeIdSet.add(fields.getAssignee().getAccountId());
-                    }
+            for (var issue : issuesInEpic) {
+                final var fields = issue.getFields();
+                if (Objects.nonNull(fields.getTimeEstimate())) {
+                    epicRemainingResponse.setTimeEstimate(
+                            epicRemainingResponse.getTimeEstimate() + fields.getTimeEstimate());
+                }
+                if (Objects.nonNull(fields.getAssignee())) {
+                    assigneeIdSet.add(fields.getAssignee().getAccountId());
                 }
             }
             epicRemainingResponse.setHeadCount(assigneeIdSet.size());
