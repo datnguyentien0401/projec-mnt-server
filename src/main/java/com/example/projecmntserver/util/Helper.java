@@ -1,11 +1,12 @@
 package com.example.projecmntserver.util;
 
-import com.example.projecmntserver.constant.Constant;
-import com.example.projecmntserver.dto.jira.IssueDto;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Objects;
-import javax.validation.constraints.NotNull;
+
+import com.example.projecmntserver.constant.Constant;
+import com.example.projecmntserver.dto.jira.IssueDto;
+
 import lombok.AccessLevel;
 import lombok.NoArgsConstructor;
 

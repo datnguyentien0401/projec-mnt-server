@@ -22,6 +22,7 @@ import java.util.stream.Collectors;
 
 import javax.validation.constraints.NotNull;
 
+import org.springframework.lang.Nullable;
 import org.springframework.stereotype.Service;
 import org.springframework.util.CollectionUtils;
 import org.springframework.util.StringUtils;
@@ -99,9 +100,11 @@ public class ProjectService {
         allEpics.forEach(e -> allEpicIds.addAll(e.getIds()));
         return allEpicIds;
     }
+
     public ProjectResponse getJiraProjectStatistic(List<String> jiraProjectIds,
                                                    LocalDate fromDate,
-                                                   LocalDate toDate) {
+                                                   LocalDate toDate,
+                                                   ProjectSearchType searchType) {
         final var projectResponse = new ProjectResponse();
 
         final List<JiraProjectDto> jiraProjects = getJiraProject(jiraProjectIds);
@@ -110,12 +113,13 @@ public class ProjectService {
 
         final List<IssueDto> allIssues = getChildIssues(allEpicIds);
 
-        final Map<String, List<IssueDto>> issuesByJiraProject = jiraProjects.stream().collect(
-                Collectors.toMap(JiraProjectDto::getId, p -> new ArrayList<>()));
+        final Map<String, List<IssueDto>> issuesByJiraProject = new HashMap<>();
 
         allIssues.forEach(issue -> {
-            final String projectId = issue.getFields().getProject().getId();
-            if (issuesByJiraProject.containsKey(projectId)) {
+            final JiraProjectDto project = issue.getFields().getProject();
+            if (Objects.nonNull(project)) {
+                final String projectId = project.getId();
+                issuesByJiraProject.putIfAbsent(projectId, new ArrayList<>());
                 issuesByJiraProject.get(projectId).add(issue);
             }
         });
@@ -129,7 +133,7 @@ public class ProjectService {
             if (CollectionUtils.isEmpty(issues)) {
                 continue;
             }
-            projectListPerMonth.addAll(getProjectSumDataPerMonthV2(issues, fromDate, toDate, true)
+            projectListPerMonth.addAll(getProjectSumDataPerMonthV2(issues, fromDate, toDate, false, searchType)
                                                .values()
                                                .stream()
                                                .peek(project -> {
@@ -143,7 +147,7 @@ public class ProjectService {
 
         projectResponse.setTotalData(
                 new ArrayList<>(
-                        getProjectSumDataPerMonthV2(allIssues, fromDate, toDate, false).values())
+                        getProjectSumDataPerMonthV2(allIssues, fromDate, toDate, true).values())
                         .stream()
                         .sorted(Comparator.comparing(ProjectDto::getMonth))
                         .toList());
@@ -188,7 +192,7 @@ public class ProjectService {
 
         projectResponse.setTotalData(
                 new ArrayList<>(
-                        getProjectSumDataPerMonthV2(childIssues, fromDate, toDate, false).values())
+                        getProjectSumDataPerMonthV2(childIssues, fromDate, toDate, true).values())
                         .stream()
                         .sorted(Comparator.comparing(ProjectDto::getMonth))
                         .toList());
@@ -208,7 +212,15 @@ public class ProjectService {
     public Map<String, ProjectDto> getProjectSumDataPerMonthV2(List<IssueDto> issues,
                                                                LocalDate fromDate,
                                                                LocalDate toDate,
-                                                               boolean calculateIssue) {
+                                                               boolean calculateTotalEpic) {
+        return getProjectSumDataPerMonthV2(issues, fromDate, toDate, calculateTotalEpic, null);
+    }
+
+    public Map<String, ProjectDto> getProjectSumDataPerMonthV2(List<IssueDto> issues,
+                                                               LocalDate fromDate,
+                                                               LocalDate toDate,
+                                                               boolean calculateTotalEpic,
+                                                               @Nullable ProjectSearchType searchType) {
         final Map<String, ProjectDto> projectByMonth = new HashMap<>();
         for (var issue : issues) {
             final var fields = issue.getFields();
@@ -232,13 +244,14 @@ public class ProjectService {
                     continue;
                 }
 
-                if (Objects.nonNull(fields.getTimeSpent())) {
+                if ((Objects.nonNull(searchType) && searchType.isTimeSpent() || calculateTotalEpic)
+                    && Objects.nonNull(fields.getTimeSpent())) {
                     calculateTimeSpent(projectDto, month, fields.getWorklog());
                 }
-                if (Objects.nonNull(fields.getAssignee())) {
+                if (calculateTotalEpic && Objects.nonNull(fields.getAssignee())) {
                     projectDto.getAssignees().add(fields.getAssignee().getAccountId());
                 }
-                if (calculateIssue && DatetimeUtils.countMonth(tempDate, toDate) <= Constant.COLUMN_CHART_MONTH_DISPLAY_NUM) {
+                if (!calculateTotalEpic && DatetimeUtils.countMonth(tempDate, toDate) <= Constant.COLUMN_CHART_MONTH_DISPLAY_NUM) {
                     handleIssueChartData(projectDto, issue, month, fromDate, toDate);
                 }
                 projectByMonth.put(month, projectDto);
@@ -246,12 +259,14 @@ public class ProjectService {
             }
         }
         final List<IssueDto> resolvedIssues = Helper.getResolvedIssuesInRange(issues, fromDate, toDate);
-        getResolvedIssueSumDataPerMonthV2(projectByMonth, resolvedIssues);
+        getResolvedIssueSumDataPerMonthV2(
+                projectByMonth, resolvedIssues,
+                Objects.nonNull(searchType) && searchType.isStoryPoint() || calculateTotalEpic);
         return projectByMonth;
     }
 
     private static void getResolvedIssueSumDataPerMonthV2(Map<String, ProjectDto> projectByMonth,
-                                                          List<IssueDto> issues) {
+                                                          List<IssueDto> issues, boolean calculateStoryPoint) {
         for (var issue : issues) {
             final var fields = issue.getFields();
 
@@ -265,7 +280,7 @@ public class ProjectService {
             } else {
                 project.setMonth(month);
             }
-            if (Objects.nonNull(fields.getStoryPoint())) {
+            if (calculateStoryPoint && Objects.nonNull(fields.getStoryPoint())) {
                 project.setTotalStoryPoint(
                     project.getTotalStoryPoint() + fields.getStoryPoint());
             }

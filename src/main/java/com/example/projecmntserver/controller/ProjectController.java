@@ -51,10 +51,12 @@ public class ProjectController {
     public ResponseEntity<ProjectResponse> jiraProjectSearch(
             @RequestParam List<String> jiraProjectIds,
             @RequestParam String fromDate,
-            @RequestParam String toDate) {
+            @RequestParam String toDate,
+            @RequestParam(defaultValue = "RESOLVED_ISSUE") ProjectSearchType type) {
         return ResponseEntity.ok(projectService.getJiraProjectStatistic(jiraProjectIds,
                                                                         DatetimeUtils.parse(fromDate),
-                                                                        DatetimeUtils.parse(toDate)));
+                                                                        DatetimeUtils.parse(toDate),
+                                                                        type));
     }
 
     private static List<String> getEpicIds(List<String> projectIds) {
