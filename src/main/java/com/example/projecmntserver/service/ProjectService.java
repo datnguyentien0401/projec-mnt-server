@@ -17,6 +17,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
 
@@ -126,23 +129,29 @@ public class ProjectService {
 
         final List<ProjectDto> projectListPerMonth = new ArrayList<>();
 
-        for (JiraProjectDto jiraProject : jiraProjects) {
-            final String jiraProjectId = jiraProject.getId();
+        final ExecutorService executor = Executors.newFixedThreadPool(10);
 
-            final List<IssueDto> issues = issuesByJiraProject.getOrDefault(jiraProjectId, new ArrayList<>());
-            if (CollectionUtils.isEmpty(issues)) {
-                continue;
-            }
-            projectListPerMonth.addAll(getProjectSumDataPerMonthV2(issues, fromDate, toDate, false, searchType)
-                                               .values()
-                                               .stream()
-                                               .peek(project -> {
-                                                   project.setJiraProjectId(jiraProjectId);
-                                                   project.setJiraProjectName(jiraProject.getName());
-                                               })
-                                               .sorted(Comparator.comparing(ProjectDto::getMonth))
-                                               .toList());
+        for (JiraProjectDto jiraProject : jiraProjects) {
+            executor.submit(() -> {
+                handleJiraProjectSumData(projectListPerMonth, issuesByJiraProject,
+                                         jiraProject, fromDate, toDate, searchType);
+                try {
+                    Thread.sleep(1000);
+                } catch (InterruptedException e) {
+                    e.printStackTrace();
+                }
+            });
         }
+
+        executor.shutdown();
+        try {
+            if (!executor.awaitTermination(60, TimeUnit.SECONDS)) {
+                executor.shutdownNow();
+            }
+        } catch (InterruptedException e) {
+            executor.shutdownNow();
+        }
+
         projectResponse.setListData(projectListPerMonth);
 
         projectResponse.setTotalData(
@@ -153,6 +162,29 @@ public class ProjectService {
                         .toList());
 
         return projectResponse;
+    }
+
+    private void handleJiraProjectSumData(List<ProjectDto> projectListPerMonth,
+                                          Map<String, List<IssueDto>> issuesByJiraProject,
+                                          JiraProjectDto jiraProject,
+                                          LocalDate fromDate,
+                                          LocalDate toDate,
+                                          ProjectSearchType searchType) {
+        final String jiraProjectId = jiraProject.getId();
+
+        final List<IssueDto> issues = issuesByJiraProject.getOrDefault(jiraProjectId, new ArrayList<>());
+        if (CollectionUtils.isEmpty(issues)) {
+            return ;
+        }
+        projectListPerMonth.addAll(getProjectSumDataPerMonthV2(issues, fromDate, toDate, false, searchType)
+                                           .values()
+                                           .stream()
+                                           .peek(project -> {
+                                               project.setJiraProjectId(jiraProjectId);
+                                               project.setJiraProjectName(jiraProject.getName());
+                                           })
+                                           .sorted(Comparator.comparing(ProjectDto::getMonth))
+                                           .toList());
     }
 
     private static String buildGetEpicIssuesJql(List<String> epicIds) {
@@ -442,7 +474,7 @@ public class ProjectService {
         return statusUpdatedHistoryByMonth;
     }
 
-    private static String getProjectName(FieldDto fields) {
+    private static String getProjectName(FieldDto fields, boolean groupEpic) {
         final ParentDto parent = fields.getParent();
         if (Objects.isNull(parent)) {
             return Constant.EMPTY_STRING;
@@ -453,9 +485,13 @@ public class ProjectService {
         }
         final IssueTypeDto parentType = parentFields.getIssueType();
         if (Objects.nonNull(parentType) && "Epic".equals(parentType.getName())) {
-            return getEpicPrefix(parentFields.getSummary());
+            return groupEpic ? getEpicPrefix(parentFields.getSummary()) : parentFields.getSummary();
         }
         return Constant.EMPTY_STRING;
+    }
+
+    private static String getProjectName(FieldDto fields) {
+        return getProjectName(fields, true);
     }
 
     private static void getResolvedIssueDataPerMonthV2(Map<String, Map<String, ProjectDto>> projectByEpic,
@@ -537,7 +573,7 @@ public class ProjectService {
     }
 
     private static String getEpicPrefix(String epicName) {
-        return StringUtils.hasText(epicName) ? epicName.split("_")[0] : Constant.EMPTY_STRING;
+        return StringUtils.hasText(epicName) ? epicName.split("-")[0] : Constant.EMPTY_STRING;
     }
 
     public List<EpicRemainingResponse> getEpicRemaining(List<String> epicIds) {
@@ -548,7 +584,7 @@ public class ProjectService {
                 Collectors.toMap(EpicDto::getName, p -> new ArrayList<>()));
 
         getChildIssuesNoExpand(epicIds).forEach(issue -> {
-            final String epicName = getProjectName(issue.getFields());
+            final String epicName = getProjectName(issue.getFields(), false);
             if (issuesByEpic.containsKey(epicName)) {
                 issuesByEpic.get(epicName).add(issue);
             }
