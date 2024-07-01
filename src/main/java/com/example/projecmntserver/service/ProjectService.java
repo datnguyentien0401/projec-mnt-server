@@ -118,7 +118,7 @@ public class ProjectService {
 
         final Map<String, List<IssueDto>> issuesByJiraProject = new HashMap<>();
 
-        allIssues.forEach(issue -> {
+        allIssues.parallelStream().forEach(issue -> {
             final JiraProjectDto project = issue.getFields().getProject();
             if (Objects.nonNull(project)) {
                 final String projectId = project.getId();
@@ -131,7 +131,7 @@ public class ProjectService {
 
         final ExecutorService executor = Executors.newFixedThreadPool(10);
 
-        for (JiraProjectDto jiraProject : jiraProjects) {
+        jiraProjects.parallelStream().forEach(jiraProject -> {
             executor.submit(() -> {
                 handleJiraProjectSumData(projectListPerMonth, issuesByJiraProject,
                                          jiraProject, fromDate, toDate, searchType);
@@ -141,7 +141,7 @@ public class ProjectService {
                     e.printStackTrace();
                 }
             });
-        }
+        });
 
         executor.shutdown();
         try {
@@ -176,13 +176,9 @@ public class ProjectService {
         if (CollectionUtils.isEmpty(issues)) {
             return ;
         }
-        projectListPerMonth.addAll(getProjectSumDataPerMonthV2(issues, fromDate, toDate, false, searchType)
+        projectListPerMonth.addAll(getProjectSumDataPerMonthV2(issues, fromDate, toDate, false, searchType, jiraProject)
                                            .values()
                                            .stream()
-                                           .peek(project -> {
-                                               project.setJiraProjectId(jiraProjectId);
-                                               project.setJiraProjectName(jiraProject.getName());
-                                           })
                                            .sorted(Comparator.comparing(ProjectDto::getMonth))
                                            .toList());
     }
@@ -245,16 +241,17 @@ public class ProjectService {
                                                                LocalDate fromDate,
                                                                LocalDate toDate,
                                                                boolean calculateTotalEpic) {
-        return getProjectSumDataPerMonthV2(issues, fromDate, toDate, calculateTotalEpic, null);
+        return getProjectSumDataPerMonthV2(issues, fromDate, toDate, calculateTotalEpic, null, null);
     }
 
     public Map<String, ProjectDto> getProjectSumDataPerMonthV2(List<IssueDto> issues,
                                                                LocalDate fromDate,
                                                                LocalDate toDate,
                                                                boolean calculateTotalEpic,
-                                                               @Nullable ProjectSearchType searchType) {
+                                                               @Nullable ProjectSearchType searchType,
+                                                               JiraProjectDto jiraProject) {
         final Map<String, ProjectDto> projectByMonth = new HashMap<>();
-        for (var issue : issues) {
+        issues.parallelStream().forEach(issue -> {
             final var fields = issue.getFields();
 
             var tempDate = fromDate;
@@ -286,10 +283,14 @@ public class ProjectService {
                 if (!calculateTotalEpic && DatetimeUtils.countMonth(tempDate, toDate) <= Constant.COLUMN_CHART_MONTH_DISPLAY_NUM) {
                     handleIssueChartData(projectDto, issue, month, fromDate, toDate);
                 }
+                if (Objects.nonNull(jiraProject)) {
+                    projectDto.setJiraProjectId(jiraProject.getId());
+                    projectDto.setJiraProjectName(jiraProject.getName());
+                }
                 projectByMonth.put(month, projectDto);
                 tempDate = tempDate.plusMonths(1);
             }
-        }
+        });
         final List<IssueDto> resolvedIssues = Helper.getResolvedIssuesInRange(issues, fromDate, toDate);
         getResolvedIssueSumDataPerMonthV2(
                 projectByMonth, resolvedIssues,
