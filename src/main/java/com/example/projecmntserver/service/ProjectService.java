@@ -591,6 +591,8 @@ public class ProjectService {
             }
         });
 
+        long totalET = 0L;
+        int totalAssignee = 0;
         for (var epic : allEpics) {
             final var epicRemainingResponse = new EpicRemainingResponse();
             epicRemainingResponse.setEpicName(epic.getName());
@@ -602,19 +604,36 @@ public class ProjectService {
             final Set<String> assigneeIdSet = new HashSet<>();
             for (var issue : issuesInEpic) {
                 final var fields = issue.getFields();
-                if (Objects.nonNull(fields.getTimeEstimate())) {
+                final Long timeEstimate = fields.getTimeEstimate();
+                if (Objects.nonNull(timeEstimate)) {
                     epicRemainingResponse.setTimeEstimate(
-                            epicRemainingResponse.getTimeEstimate() + fields.getTimeEstimate());
+                            epicRemainingResponse.getTimeEstimate() + timeEstimate);
+                    totalET += timeEstimate;
                 }
                 if (Objects.nonNull(fields.getAssignee())) {
                     assigneeIdSet.add(fields.getAssignee().getAccountId());
                 }
             }
-            epicRemainingResponse.setHeadCount(assigneeIdSet.size());
+            final int assigneeCount = assigneeIdSet.size();
+            epicRemainingResponse.setHeadCount(assigneeCount);
+            totalAssignee += assigneeCount;
 
             result.add(epicRemainingResponse);
         }
+        addTotalRemainingResponse(result, totalET, totalAssignee);
         return result;
+    }
+
+    private static void addTotalRemainingResponse(List<EpicRemainingResponse> epicRemainings, long totalET,
+                                                  int totalAssignee) {
+        if (CollectionUtils.isEmpty(epicRemainings)) {
+            return;
+        }
+        final EpicRemainingResponse epicRemainingTotal = new EpicRemainingResponse();
+        epicRemainingTotal.setTimeEstimate(totalET);
+        epicRemainingTotal.setHeadCount(totalAssignee);
+        epicRemainingTotal.setEpicName(getEpicPrefix(epicRemainings.get(0).getEpicName()));
+        epicRemainings.add(epicRemainingTotal);
     }
 
     public List<OverallTeamResponse> getOverall(LocalDate fromDate, LocalDate toDate, List<Team> allTeams,
