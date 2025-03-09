@@ -574,7 +574,7 @@ public class ProjectService {
     }
 
     private static String getEpicPrefix(String epicName) {
-        return StringUtils.hasText(epicName) ? epicName.split("_")[0] : Constant.EMPTY_STRING;
+        return StringUtils.hasText(epicName) ? StringUtils.trimWhitespace(epicName.split("_")[0]) : Constant.EMPTY_STRING;
     }
 
     public List<EpicRemainingResponse> getEpicRemaining(List<String> epicIds) {
@@ -620,7 +620,9 @@ public class ProjectService {
 
             result.add(epicRemainingResponse);
         }
-        addTotalRemainingResponse(result, totalET, totalAssignee);
+//        if (allEpics.size() > 1) {
+//            addTotalRemainingResponse(result, totalET, totalAssignee);
+//        }
         return result;
     }
 
@@ -710,23 +712,18 @@ public class ProjectService {
         teamResponse.setAvgTimeSpent(NumberUtils.round(totalTimeSpent / (monthCount * members.size() * Constant.TIME_MM)));
     }
 
-    public IssueSearchResponse getTeamViewIssues(LocalDate fromDate, LocalDate toDate, List<String> jiraMemberIds) {
-        String jql = String.format(
-            """
-                type NOT IN (%s)
-                AND (
-                        (resolved >= %s AND resolved <= %s)
-                    OR  (created <= %s AND updated >= %s)
-                ) \
-            """,
-            String.join(", ", IGNORE_SEARCH_ISSUE_TYPE),
-            fromDate,
-            toDate,
-            toDate,
-            fromDate);
-        if (!CollectionUtils.isEmpty(jiraMemberIds)) {
-            jql += String.format("AND assignee IN ( %s )", String.join(",", jiraMemberIds));
-        }
+    public IssueSearchResponse getTeamViewIssues(LocalDate fromDate, LocalDate toDate, List<String> worklogAuthors) {
+        final String jql = String.format(
+                """
+                worklogAuthor in (%s)
+                AND worklogDate >= "%s"
+                AND worklogDate <= "%s"
+                """,
+                String.join(",", worklogAuthors.stream().map(author -> '"' + author + '"').toList()),// Format các worklogAuthors đúng cú pháp
+                fromDate,
+                toDate
+        );
+
         return jiraApiService.searchIssue(jql, ISSUE_FIELDS);
     }
 
