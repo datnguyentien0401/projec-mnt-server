@@ -50,7 +50,8 @@ public final class DatetimeUtils {
     }
 
     public static boolean isLocalDateBetween(LocalDate date, LocalDate fromDate, LocalDate toDate) {
-        return Objects.nonNull(date) && date.isAfter(fromDate) && date.isBefore(toDate);
+        return Objects.nonNull(date) && (date.isEqual(fromDate) || date.isAfter(fromDate)) &&
+               (date.isEqual(toDate) || date.isBefore(toDate));
     }
 
     public static LocalDateTime parseDatetime(@NotNull String datetimeStr) {

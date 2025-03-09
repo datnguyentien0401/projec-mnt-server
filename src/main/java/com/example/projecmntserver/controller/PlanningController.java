@@ -2,6 +2,8 @@ package com.example.projecmntserver.controller;
 
 import java.util.List;
 
+import javax.validation.Valid;
+
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.annotation.Validated;
@@ -31,7 +33,7 @@ public class PlanningController {
     private final PlanningService planningService;
 
     @PostMapping
-    public ResponseEntity<Planning> create(@RequestBody PlanningDto planningDto)
+    public ResponseEntity<Planning> create(@RequestBody @Valid PlanningDto planningDto)
             throws JsonProcessingException {
         return ResponseEntity.status(HttpStatus.CREATED).body(
                 planningService.create(planningDto));
@@ -39,7 +41,7 @@ public class PlanningController {
 
     @PutMapping("/{id}")
     public ResponseEntity<Planning> update(@PathVariable("id") Long id,
-                                           @RequestBody PlanningDto planningDto)
+                                           @RequestBody @Valid PlanningDto planningDto)
             throws JsonProcessingException {
         return ResponseEntity.status(HttpStatus.OK).body(
                 planningService.update(id, planningDto));

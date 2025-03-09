@@ -15,7 +15,7 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 @NoArgsConstructor
 public class PlanningDto {
-    @Length(max=256, message = "Name is invalid")
+    @Length(max=100, message = "Name is invalid")
     private String name;
     @NotBlank
     private String key;

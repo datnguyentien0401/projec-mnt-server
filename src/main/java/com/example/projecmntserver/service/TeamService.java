@@ -1,6 +1,8 @@
 package com.example.projecmntserver.service;
 
 import java.time.LocalDate;
+import java.time.ZoneId;
+import java.time.ZonedDateTime;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.HashMap;
@@ -149,9 +151,12 @@ public class TeamService {
                 workLogs.forEach(wl -> {
                     final String accountId = wl.getAuthor().getAccountId();
                     final Date started = wl.getStarted();
-                    final LocalDate startedLocalDate = DatetimeUtils.dateToLocalDate(started);
+
+                    final ZonedDateTime startedZoned = ZonedDateTime.ofInstant(started.toInstant(), ZoneId.of("UTC+7"));
+                    final LocalDate startedLocalDate = startedZoned.toLocalDate();
+
                     if (DatetimeUtils.isLocalDateBetween(startedLocalDate, fromDate, toDate)) {
-                        setData(timeSpentData, DatetimeUtils.getMonth(started), accountId,
+                        setData(timeSpentData, startedZoned.getMonthValue(), accountId,
                             (double) wl.getTimeSpentSeconds() / Constant.TIME_MD);
                     }
                 });
