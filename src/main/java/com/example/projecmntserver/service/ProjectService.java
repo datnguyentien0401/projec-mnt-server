@@ -648,9 +648,14 @@ public class ProjectService {
                                              .distinct()
                                              .toList();
         final IssueSearchResponse issueSearchResponse = getTeamViewIssues(fromDate, toDate, jiraMemberIds);
+        if (Objects.isNull(issueSearchResponse)) {
+            return result;
+        }
 
         final var issuesByAssignee = issueSearchResponse.getIssues().stream()
-            .collect(Collectors.groupingBy(issueDto -> issueDto.getFields().getAssignee().getAccountId()));
+            .collect(Collectors.groupingBy(issueDto -> Objects.nonNull(issueDto.getFields().getAssignee())
+                                                       ? issueDto.getFields().getAssignee().getAccountId()
+                                                       : Constant.EMPTY_ASSIGNEE));
 
         for (var team : allTeams) {
             final var members = teamMembers.get(team.getId());
@@ -712,13 +717,19 @@ public class ProjectService {
         teamResponse.setAvgTimeSpent(NumberUtils.round(totalTimeSpent / (monthCount * members.size() * Constant.TIME_MM)));
     }
 
+    @Nullable
     public IssueSearchResponse getTeamViewIssues(LocalDate fromDate, LocalDate toDate, List<String> worklogAuthors) {
+        if (CollectionUtils.isEmpty(worklogAuthors)) {
+            return null;
+        }
         final String jql = String.format(
                 """
-                worklogAuthor in (%s)
+                type NOT IN (%s)
+                AND worklogAuthor IN (%s)
                 AND worklogDate >= "%s"
                 AND worklogDate <= "%s"
                 """,
+                String.join(", ", IGNORE_SEARCH_ISSUE_TYPE),
                 String.join(",", worklogAuthors.stream().map(author -> '"' + author + '"').toList()),// Format các worklogAuthors đúng cú pháp
                 fromDate,
                 toDate

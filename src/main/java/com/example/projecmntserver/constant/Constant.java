@@ -13,6 +13,7 @@ public final class Constant {
     public static final Integer MAX_RESULT_SEARCH_JIRA = 100;
     public static final String JIRA_ACCOUNT_TYPE_APP = "app";
     public static final String EMPTY_STRING = "";
+    public static final String EMPTY_ASSIGNEE = "empty_assignee";
     public static final Integer COLUMN_CHART_MONTH_DISPLAY_NUM = 3;
 
 }
