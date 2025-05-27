@@ -8,9 +8,9 @@ spring:
     active: local
   datasource:
     hikari:
-      jdbc-url: jdbc:mysql://34.125.125.134:3306/project_mnt?characterEncoding=UTF-8&useUnicode=true&cachePrepStmts=true&useServerPrepStmts=true&reWriteBatchedInserts=true
+      jdbc-url: jdbc:mysql://localhost:3306/project_mnt?characterEncoding=UTF-8&useUnicode=true&cachePrepStmts=true&useServerPrepStmts=true&reWriteBatchedInserts=true
       username: root
-      password: 123123a@
+      password:
       connection-timeout: 300_000
       maximum-pool-size: 10
 

@@ -50,7 +50,8 @@ public enum JiraStatus {
 
     public static final List<String> DONE_STATUS_LIST = List.of(Fixed.getValue(), DONE.getValue(),
                                                                 CLOSED.getValue(), KILLED.getValue(),
-                                                                CHECKIN.getValue(), PREFIXED.getValue(),
+//                                                                CHECKIN.getValue(),
+                                                                PREFIXED.getValue(),
                                                                 WONT_FIX.getValue());
 
 }
