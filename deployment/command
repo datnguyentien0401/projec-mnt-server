@@ -1,0 +1,17 @@
+
+kubectl create configmap oauth2-config --from-file=app/overlays/beta/config/oauth2-proxy.cfg -n integrated-tool
+helm repo add sealed-secrets https://bitnami-labs.github.io/sealed-secrets
+helm repo update
+helm install sealed-secrets-controller sealed-secrets/sealed-secrets --namespace sealed-secrets
+
+kubectl create secret generic oauth2-proxy \
+  --from-literal=OAUTH2_PROXY_CLIENT_SECRET='${{ secrets.OAUTH2_PROXY_CLIENT_SECRET }}' \
+  --from-literal=OAUTH2_PROXY_COOKIE_SECRET='${{ secrets.OAUTH2_PROXY_COOKIE_SECRET }}' -n integrated-tool -o yaml --dry-run=client > app/overlays/beta/secrect.yaml
+
+kustomize build ./app/overlays/beta/ --enable-helm --load-restrictor LoadRestrictionsNone | kubectl apply -f -
+
+
+//argo
+argocd login --grpc-web --sso argocd.com
+argocd cluster add --system-namespace=argocd app
+argocd repo add https:repo.git

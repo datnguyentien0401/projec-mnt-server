@@ -1,0 +1,26 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: nginx-external
+
+helmCharts:
+- name: ingress-nginx
+  releaseName: ingress-nginx
+  repo: repository-link
+  valuesFile: ../../../base/values.yaml
+  valuesInline:
+    controller:
+      replicaCount: 1
+      podLabels:
+        project: ingress-nginx-external
+      tolerations:
+        - key: "node-role.kubernetes.io/control-plane"
+          operator: "Exists"
+          effect: "NoSchedule"
+      resources:
+        limits:
+          cpu: "0.5"
+          memory: "1Gi"
+        requests:
+          cpu: "0.25"
+          memory: "512Mi"
+  version: 4.12.1

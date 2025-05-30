@@ -1,0 +1,79 @@
+namespaceOverride: ingress-nginx-external
+controller:
+  ingressClassResource:
+    name: nginx-external
+    controllerValue: k8s.io/ingress-nginx-external
+  config:
+    use-proxy-protocol: "false"
+    use-forwarded-headers: "true"
+    client-header-timeout: 5
+    client-body-timeout: 30
+    log-format-upstream: '{
+      "timestamp": "$time_iso8601",
+      "remote_addr": "$proxy_protocol_addr",
+      "x_forwarded_for": "$http_x_forwarded_for",
+      "request_id": "$req_id",
+      "remote_user": "$remote_user",
+      "body_bytes_sent": $bytes_sent,
+      "request_time": $request_time,
+      "status":$status,
+      "vhost": "$host",
+      "request_proto": "$server_protocol",
+      "uri": "$request_uri",
+      "query_string": "$query_string",
+      "path": "$uri",
+      "request_query": "$args",
+      "request_length": $request_length,
+      "duration": $request_time,
+      "method": "$request_method",
+      "http_referrer": "$http_referer",
+      "http_user_agent": "$http_user_agent",
+      "upstream_response_time": "$upstream_response_time",
+      "x_forwarded_host": "$http_x_forwarded_host"
+      }'
+    large-client-header-buffers: 20 64k
+    log-format-escape-json: "true"
+    proxy-body-size: 10m
+    proxy-buffer-size: 64k
+    client-body-buffer-size: 32k
+    client-header-buffer-size: 8k
+    proxy-connect-timeout: 5
+    proxy-send-timeout: 5
+    proxy-read-timeout: 60
+  replicaCount: 1
+  resources:
+    limits:
+      cpu: "0.5"
+      memory: "1Gi"
+    requests:
+      cpu: "0.25"
+      memory: "512Mi"
+  service:
+    enabled: false
+  topologySpreadConstraints:
+    - maxSkew: 1
+      topologyKey: kubernetes.io/hostname
+      whenUnsatisfiable: ScheduleAnyway
+      labelSelector:
+        matchLabels:
+          app.kubernetes.io/name: ingress-nginx
+          app.kubernetes.io/component: controller
+          app.kubernetes.io/instance: ingress-nginx
+  metrics:
+    enabled: true
+  podAnnotations:
+    firth/job.0: "ingress-nginx"
+    firth/port.0: "10254"
+  image:
+    registry: docker-registry.default.svc.cluster.local:5000
+    image: lgt/ingress-nginx/controller
+    digest: ""
+  admissionWebhooks:
+    objectSelector:
+      matchLabels:
+        ingress: ingress-nginx
+    patch:
+      image:
+        registry: docker-registry.default.svc.cluster.local:5000
+        image: lgt/ingress-nginx/kube-webhook-certgen
+        digest: ""

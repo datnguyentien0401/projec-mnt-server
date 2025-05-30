@@ -1,0 +1,46 @@
+name: "*CI* - Building & checking the source code"
+on:
+  workflow_call:
+    inputs:
+      runner:
+        required: true
+        type: string
+jobs:
+  build-and-test:
+    concurrency:
+      group: ${{ github.workflow }}-${{ github.ref }}
+      cancel-in-progress: true
+    runs-on: ${{ inputs.runner }}
+    steps:
+      -   name: Checkout source code
+          uses: synced-actions/checkout@v4
+
+      -   name: Set up Java 17
+          uses: synced-actions/setup-java@v4
+          with:
+            java-version: '17'
+            distribution: 'temurin'
+            cache: gradle
+
+      -   name: Gradle Clean and Build
+          run: |
+            # Run check style without cache
+            ./gradlew checkstyleMain checkstyleTest --rerun-tasks && \
+            ./gradlew clean fullTest
+      -   name: SonarQube Scan
+          env:
+            SONAR_HOST_URL: sonar-url.com
+            SONAR_LOGIN: ${{ secrets.SONAR_LOGIN }}
+          uses: sonarsource/sonarqube-scan-action@86fe81775628f1c6349c28baab87881a2170f495
+          # Use https://github.com/SonarSource/sonarqube-scan-action/releases/tag/v2.1.0
+          with:
+            args: >
+              -Dsonar.host.url=${{ env.SONAR_HOST_URL }}
+              -Dsonar.projectKey=shorturl-v2
+              -Dsonar.sourceEncoding=UTF-8
+              -Dsonar.login=${{ env.SONAR_LOGIN }}
+              -Dsonar.language=java
+              -Dsonar.java.coveragePlugin=jacoco
+              -Dsonar.coverage.jacoco.xmlReportPaths=./build/reports/jacoco/jacocoRootReport/jacocoRootReport.xml
+              -Dsonar.exclusions=**/*Test*,**/model/**/*,**/config/*,**/*Exception*,**/*Constants*,**/dto/*,**/domain/*,**/*.sql
+              -Dsonar.java.binaries=.

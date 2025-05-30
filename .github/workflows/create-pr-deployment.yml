@@ -1,0 +1,126 @@
+name: Create deployment PR
+run-name: Deploy Env ${{ inputs.env }} - App ${{ inputs.app }} - Base ${{ inputs.baseBranch }}
+on:
+  workflow_dispatch:
+    inputs:
+      env:
+        description: environment
+        required: true
+        type: choice
+        options:
+          - beta
+        default: beta
+      app:
+        description: application name
+        required: true
+        type: choice
+        options:
+          - app
+      baseBranch:
+        description: PR base branch, tag or commit hash
+        required: false
+        default: develop
+
+jobs:
+  Checkout-build-and-push:
+    concurrency:
+      group: ${{ github.workflow }}-${{ github.event.inputs.app }}-${{ github.ref }}
+      cancel-in-progress: true
+    name: Checkout repository, build jar and docker build images and push images to
+    environment: ${{ inputs.env }}
+    runs-on: runner-medium
+    steps:
+      - name: Check out repository code
+        uses: synced-actions/checkout@v4
+        with:
+          ref: ${{ inputs.baseBranch }}
+
+      - name: Set git commit hash
+        run: |
+          echo "sha_short=$(git log -1 --format='%H')" >> "$GITHUB_ENV"
+
+      - name: Determine GitHub URL
+        run: |
+          REPO_URL=$(git remote get-url origin | sed 's/.git$//')
+          BRANCH=$(git symbolic-ref --short HEAD 2>/dev/null || echo "")
+          TAG=$(git describe --tags --exact-match 2>/dev/null || echo "")
+          COMMIT=$(git rev-parse HEAD)
+
+          if [ -n "$BRANCH" ]; then
+            GIT_URL="$REPO_URL/tree/$BRANCH"
+          elif [ -n "$TAG" ]; then
+            GIT_URL="$REPO_URL/releases/tag/$TAG"
+          else
+            GIT_URL="$REPO_URL/commit/$COMMIT"
+          fi
+
+          echo "GIT_URL=$GIT_URL" >> $GITHUB_ENV
+          echo "GIT_LAST_COMMIT_HASH_URL=$REPO_URL/commit/$sha_short" >> $GITHUB_ENV
+
+      - name: Set up Java 17
+        uses: synced-actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+          cache: gradle
+
+      - name: Login to
+        uses: docker/login-action@0d4c9c5ea7693da7b068278f7b52bda2a190a446
+        # Use https://github.com/docker/login-action/releases/tag/v3.2.0
+        with:
+          registry: registry-url
+          username: ${{ secrets.USERNAME }}
+          password: ${{ secrets.PASSWORD }}
+
+      - name: Gradle Clean and Build and push docker image for beta env
+        run: ./gradlew clean -p app/${{ inputs.app }} jib --image=docker-registry/${{ inputs.app }}:${{ env.sha_short }} -x test -x check --build-cache
+
+    outputs:
+      tag_version: ${{ contains(fromJSON('["prod", "intra", "load"]'), inputs.env) && inputs.baseBranch || env.sha_short }}
+      git_url: ${{ env.GIT_URL }}
+      sha_short: ${{ env.sha_short }}
+      git_last_commit_hash_url: ${{ env.GIT_LAST_COMMIT_HASH_URL }}
+
+  CreatePR:
+    name: Create PR to manifest repository
+    environment: ${{ inputs.env }}
+    runs-on: runner-medium
+    container:
+      image: image
+    needs: [ Checkout-build-and-push ]
+    steps:
+      - name: Generate GitHub App Token
+        uses: synced-actions/create-github-app-token@v1
+        id: app-token
+        with:
+          app-id: ${{ vars.APP_ID }}
+          private-key: ${{ secrets.GHE_APP_PEM_FILE }}
+          repositories: repository
+
+      - name: Check out manifest repository code
+        uses: synced-actions/checkout@v4
+        with:
+          repository: manifest-repository
+          ref: master
+          token: ${{ steps.app-token.outputs.token }}
+
+      - name: Update value
+        run: |
+          yq e ".image.tag = \"${{ needs.Checkout-build-and-push.outputs.tag_version }}\"" -i ${{ inputs.app }}/overlays/${{ inputs.env }}/values.yaml
+
+      - name: Create Pull Request
+        # Uses https://github.com/peter-evans/create-pull-request/releases/tag/v6.0.5
+        uses: action-create-pr
+        with:
+          title: Update Image tag ${{ inputs.env }} ${{ inputs.app }}
+          body: | 
+            **Update Image Tag**
+            - 🚀Environment: `${{ inputs.env }}`
+            - 💻Application: `${{ inputs.app }}`
+            - 🌿Source: [${{ needs.Checkout-build-and-push.outputs.git_url }}](${{ needs.Checkout-build-and-push.outputs.git_url }})
+            - 📝Last commit hash:: [${{ needs.Checkout-build-and-push.outputs.sha_short }}](${{ needs.Checkout-build-and-push.outputs.git_last_commit_hash_url }})
+            - 👤Created by: [${{ github.actor }}](${{ github.server_url }}/${{ github.actor }})
+          commit-message: Update Image tag ${{ inputs.env }} ${{ inputs.app }}
+          branch: feature/update-image-tag-${{ inputs.env }}-${{ inputs.app }}
+          base: master
+          token: ${{ steps.app-token.outputs.token }}

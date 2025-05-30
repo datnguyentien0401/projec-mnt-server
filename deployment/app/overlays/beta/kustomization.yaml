@@ -1,0 +1,25 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: integrated-tool-beta-external
+resources:
+  - ../../base
+  - sealedsecret.yaml
+  - namespace.yaml
+generatorOptions:
+  disableNameSuffixHash: true
+configMapGenerator:
+  - name: web-config
+    behavior: replace
+    files:
+      - config/.env
+  - name: oauth2-config
+    files:
+      - config/oauth2-proxy.cfg
+images:
+  - name: docker-registry.com
+    newTag: "123456"
+replicas:
+  - name: app
+    count: 3
+patches:
+  - path: ingress.yaml

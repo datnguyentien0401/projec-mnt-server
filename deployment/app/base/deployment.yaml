@@ -1,0 +1,85 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: integrated-tool
+  namespace: integrated-tool
+  labels:
+    app: app
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: app
+  template:
+    metadata:
+      labels:
+        app: app
+    spec:
+      containers:
+        - name: oauth2-proxy
+          image: image
+          imagePullPolicy: IfNotPresent
+          args: [ "--config=/etc/oauth2/oauth2-proxy.cfg" ]
+          ports:
+            - containerPort: 4180
+          resources:
+            requests:
+              cpu: 100m
+              memory: 512Mi
+            limits:
+              cpu: 100m
+              memory: 512Mi
+          volumeMounts:
+            - mountPath: /etc/oauth2/
+              name: oidc-volume
+              readOnly: true
+          env:
+            - name: OAUTH2_PROXY_CLIENT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: oauth2-proxy
+                  key: OAUTH2_PROXY_CLIENT_SECRET
+            - name: OAUTH2_PROXY_COOKIE_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: oauth2-proxy
+                  key: OAUTH2_PROXY_COOKIE_SECRET
+        - name: app
+          image: image
+          ports:
+            - name: web-port
+              containerPort: 3000
+          readinessProbe:
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            failureThreshold: 3
+            httpGet:
+              path: /healthcheck
+              port: web-port
+          livenessProbe:
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            failureThreshold: 5
+            httpGet:
+              path: /healthcheck
+              port: web-port
+          volumeMounts:
+            - name: web-config-volume
+              mountPath: /usr/src/app/.env
+              subPath: .env
+      volumes:
+        - name: oidc-volume
+          configMap:
+            name: oauth2-config
+        - name: web-config-volume
+          configMap:
+            name: web-config
+      imagePullSecrets:
+        - name: secret
+      topologySpreadConstraints:
+        - maxSkew: 1
+          topologyKey: kubernetes.io/hostname
+          whenUnsatisfiable: ScheduleAnyway
+          labelSelector:
+            matchLabels:
+              app: app
